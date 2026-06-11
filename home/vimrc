@@ -1,0 +1,63 @@
+" ~/.vimrc — sensible, productive defaults
+" Plain vim (no plugins required). Colors intentionally inherit the terminal
+" theme: we do NOT set termguicolors, so syntax uses Alacritty's ANSI palette
+" and stays in sync with whatever theme you're running.
+
+" --- core behavior ---
+set nocompatible              " use vim features, not vi-compatible mode
+syntax on                     " syntax highlighting
+filetype plugin indent on     " language-aware indenting & plugins
+set encoding=utf-8
+set background=dark           " tell vim the terminal is dark
+
+" --- line numbers ---
+set number                    " absolute number on the current line
+set relativenumber            " relative numbers on the others (fast j/k jumps)
+
+" --- indentation (4-space soft tabs) ---
+set expandtab                 " tabs become spaces
+set tabstop=4                 " a tab is shown as 4 spaces
+set shiftwidth=4              " >> / << shift by 4
+set softtabstop=4             " backspace removes a full 4-space step
+set autoindent
+set smartindent
+
+" --- searching ---
+set incsearch                 " jump to matches as you type
+set hlsearch                  " highlight all matches
+set ignorecase                " case-insensitive...
+set smartcase                 " ...unless the search has a capital letter
+
+" --- UI niceties ---
+set cursorline                " highlight the line the cursor is on
+set scrolloff=5               " keep 5 lines of context above/below cursor
+set showmatch                 " briefly jump to matching bracket
+set ruler                     " show line/col in the corner
+set showcmd                   " show partial commands as you type them
+set laststatus=2              " always show the status line
+set wildmenu                  " tab-completion menu for : commands
+set wildmode=longest:full,full
+set signcolumn=yes            " stable left gutter (no text shifting)
+
+" --- quality of life ---
+set mouse=a                   " enable mouse (resize splits, scroll, select)
+set clipboard=unnamed         " yank/paste use the macOS system clipboard
+set backspace=indent,eol,start
+set hidden                    " switch buffers without forcing a save
+set splitright splitbelow     " new splits open right/below (more intuitive)
+set updatetime=300
+
+" --- persistent undo (survives closing the file) ---
+set undofile
+set undodir=~/.vim/undo
+
+" --- keep the working dir tidy: stash swap/backup centrally ---
+set directory=~/.vim/undo
+set nobackup nowritebackup
+
+" --- handy maps ---
+let mapleader = " "           " Space is the leader key
+" Space-<Enter> clears search highlight
+nnoremap <silent> <leader><CR> :nohlsearch<CR>
+" Y yanks to end of line (consistent with C and D)
+nnoremap Y y$

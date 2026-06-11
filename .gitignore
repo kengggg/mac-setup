@@ -1,0 +1,11 @@
+# backups created by install.sh / manual edits
+*.bak
+*.bak-*
+*.bak.*
+
+# macOS noise
+.DS_Store
+
+# a full brew snapshot, if you ever generate one (kept out of the curated Brewfile)
+Brewfile.all
+Brewfile.all.lock.json

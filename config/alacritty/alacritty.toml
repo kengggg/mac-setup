@@ -1,0 +1,64 @@
+[general]
+# Color palette lives in its own file. Swap themes by pointing this at
+# another file in ~/.config/alacritty/themes/.
+#import = ["~/.config/alacritty/themes/tokyo-night.toml"]
+import = ["~/.config/alacritty/themes/lanna-tone.toml"]
+
+[env]
+TERM = "xterm-256color"
+
+# Auto-launch zellij in every Alacritty window (each window = its own session).
+# Run it via a LOGIN zsh so ~/.zprofile (Homebrew PATH etc.) is loaded first,
+# otherwise commands like `zellij` and other brew tools aren't on PATH.
+# To go back to a plain shell, comment out the block below.
+[terminal.shell]
+program = "/bin/zsh"
+args = ["--login", "-c", "exec zellij"]   # bare `zellij` (login shell has brew on PATH) — arch/OS-independent
+
+[window]
+# Borderless-maximized: fills the screen but stays on the current Space.
+startup_mode   = "Maximized"
+decorations    = "Buttonless"   # minimal chrome, keeps macOS rounded corners
+padding.x      = 14
+padding.y      = 12
+dynamic_padding = true          # evenly distribute leftover space
+opacity        = 0.95
+blur           = true
+option_as_alt  = "Both"         # make Option work as Alt for terminal apps
+
+[scrolling]
+history    = 50000
+multiplier = 3
+
+[font]
+size = 12
+
+[font.normal]
+family = "MesloLGS Nerd Font"
+style  = "Regular"
+
+[font.bold]
+family = "MesloLGS Nerd Font"
+style  = "Bold"
+
+[font.italic]
+family = "MesloLGS Nerd Font"
+style  = "Italic"
+
+[font.bold_italic]
+family = "MesloLGS Nerd Font"
+style  = "Bold Italic"
+
+[cursor]
+style = { shape = "Block", blinking = "On" }
+blink_interval = 600
+
+[selection]
+save_to_clipboard = true
+
+[keyboard]
+bindings = [
+  { key = "Return", mods = "Shift", chars = "\u001B\r" },
+  { key = "F11", action = "ToggleFullscreen" },
+]
+# Theme/colors are imported from themes/tokyo-night.toml (see [general] above).
