@@ -16,7 +16,19 @@ fonts, GUI apps, oh-my-zsh + Powerlevel10k, and my terminal stack
 Config files are **symlinked** from this repo into place, so edits on any
 machine — once committed and pushed — sync everywhere.
 
-## Quick start (machine that already has `gh` set up)
+## One-liner (works only while this repo is **public**)
+
+No GitHub auth, no prior checkout — Homebrew-style:
+
+```sh
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/kengggg/mac-setup/main/bootstrap.sh)"
+```
+
+`bootstrap.sh` installs Command Line Tools if needed, clones this repo to
+`~/Workspaces/mac-setup`, and runs `install.sh`. (A private repo can't be
+fetched this way without a token — use the `gh` flow below instead.)
+
+## Quick start (private repo, machine with `gh` set up)
 
 ```sh
 gh repo clone kengggg/mac-setup ~/Workspaces/mac-setup
