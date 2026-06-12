@@ -230,6 +230,17 @@ require("lazy").setup({
 
   -- Auto-close brackets/quotes -------------------------------------------------
   { "windwp/nvim-autopairs", event = "InsertEnter", opts = {} },
+
+  -- In-buffer markdown rendering (no browser; uses the treesitter parser) ------
+  {
+    "MeanderingProgrammer/render-markdown.nvim",
+    dependencies = { "nvim-treesitter/nvim-treesitter", "nvim-tree/nvim-web-devicons" },
+    ft = { "markdown" },
+    opts = {},
+    keys = {
+      { "<leader>tm", "<cmd>RenderMarkdown toggle<cr>", desc = "Toggle markdown render" },
+    },
+  },
 }, {
   ui = { border = "rounded" },
   checker = { enabled = false },  -- don't auto-check for plugin updates

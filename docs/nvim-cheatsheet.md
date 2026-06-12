@@ -72,6 +72,14 @@ Signs show in the gutter. Commands:
 | `:Gitsigns reset_hunk` | discard change |
 | `:Gitsigns blame_line` | blame current line |
 
+## Markdown
+
+Markdown files render in-buffer automatically via render-markdown.nvim. The raw line shows when your cursor is on it or in insert mode.
+
+| Key | Action |
+|-----|--------|
+| `Space t m` | toggle rendering on/off |
+
 ## Formatting
 
 Format runs automatically on save via conform.nvim. Manual:
