@@ -82,20 +82,30 @@ require("lazy").setup({
   -- Icons (shared dependency) -------------------------------------------------
   { "nvim-tree/nvim-web-devicons", lazy = true },
 
-  -- Treesitter: accurate highlighting + indentation ---------------------------
+  -- Treesitter: accurate highlighting -----------------------------------------
+  -- Uses the `main` branch (rewritten for Neovim 0.11+). The archived `master`
+  -- branch crashes on 0.12 injection parsing. On `main`, parser install is
+  -- explicit and highlighting is started per-buffer via core's vim.treesitter.
   {
     "nvim-treesitter/nvim-treesitter",
-    branch = "master",          -- stable API (.configs); `main` is an in-progress rewrite
+    branch = "main",
     build = ":TSUpdate",
     config = function()
-      require("nvim-treesitter.configs").setup({
-        ensure_installed = {
-          "lua", "vim", "vimdoc", "bash", "markdown", "markdown_inline",
-          "python", "javascript", "typescript", "tsx", "html", "css", "json",
-        },
-        auto_install = true,
-        highlight = { enable = true },
-        indent = { enable = true },
+      local nts = require("nvim-treesitter")
+      local want = {
+        "lua", "vim", "vimdoc", "bash", "markdown", "markdown_inline",
+        "python", "javascript", "typescript", "tsx", "html", "css", "json",
+      }
+      -- install only parsers that are missing, so startup stays silent/idempotent
+      local have = {}
+      for _, l in ipairs(nts.get_installed()) do have[l] = true end
+      local missing = vim.tbl_filter(function(l) return not have[l] end, want)
+      if #missing > 0 then nts.install(missing) end
+
+      vim.api.nvim_create_autocmd("FileType", {
+        callback = function(ev)
+          pcall(vim.treesitter.start, ev.buf)  -- highlight if a parser exists
+        end,
       })
     end,
   },

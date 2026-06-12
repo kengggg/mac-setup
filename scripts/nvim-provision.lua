@@ -5,12 +5,14 @@
 -- (Plugins themselves are installed separately with `Lazy! restore`, which
 --  honors lazy-lock.json for reproducible versions.)
 
--- 1. Treesitter parsers (must match ensure_installed in init.lua)
+-- 1. Treesitter parsers (must match the list in init.lua). nvim-treesitter
+--    `main` compiles via the tree-sitter CLI (installed by the Brewfile), and
+--    install() is async, so we block on its handle.
 local parsers = {
   "lua", "vim", "vimdoc", "bash", "markdown", "markdown_inline",
   "python", "javascript", "typescript", "tsx", "html", "css", "json",
 }
-pcall(function() vim.cmd("TSInstallSync " .. table.concat(parsers, " ")) end)
+pcall(function() require("nvim-treesitter").install(parsers):wait(600000) end)
 
 -- 2. Mason servers + formatters (must match init.lua's server list + tools)
 local registry = require("mason-registry")
