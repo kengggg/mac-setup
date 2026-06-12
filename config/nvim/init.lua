@@ -236,7 +236,9 @@ require("lazy").setup({
     "MeanderingProgrammer/render-markdown.nvim",
     dependencies = { "nvim-treesitter/nvim-treesitter", "nvim-tree/nvim-web-devicons" },
     ft = { "markdown" },
-    opts = {},
+    -- 'trimmed' shrinks cell padding so wide tables fit the window instead of
+    -- overflowing and wrapping (which scrambles the rendered overlay).
+    opts = { pipe_table = { cell = "trimmed" } },
     keys = {
       { "<leader>tm", "<cmd>RenderMarkdown toggle<cr>", desc = "Toggle markdown render" },
     },
