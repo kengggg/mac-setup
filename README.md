@@ -8,7 +8,12 @@ Machine setup & resurrection for Apple Silicon Macs.
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/kengggg/mac-setup/main/bootstrap.sh)"
 ```
 
-Installs Command Line Tools, clones to `~/Workspaces/mac-setup`, runs `install.sh`.
+Installs Command Line Tools, clones to `~/Workspaces/mac-setup`, runs `install.sh`, which prompts for a mode. To pick non-interactively:
+
+```sh
+MAC_SETUP_MODE=full    /bin/bash -c "$(curl -fsSL …/bootstrap.sh)"   # everything
+MAC_SETUP_MODE=minimal /bin/bash -c "$(curl -fsSL …/bootstrap.sh)"   # alacritty+zellij+nvim only
+```
 
 ## Sets up
 
@@ -26,23 +31,36 @@ Configs are symlinked from this repo; commit + push to sync across machines.
 - [Zellij](docs/zellij-cheatsheet.md)
 - [Neovim](docs/nvim-cheatsheet.md)
 
-## Steps
+## Modes & components
 
-Order: `homebrew → brew → zsh → tools → symlinks → nvim → macos`. Idempotent; existing files backed up to `name.bak-<timestamp>`.
+`install.sh` runs **components**; modes are presets of them. Everything is
+idempotent and backs up existing files to `name.bak-<timestamp>`.
+
+| Component | Installs + links |
+|-----------|------------------|
+| `alacritty` | alacritty + MesloLGS font → `~/.config/alacritty` |
+| `zellij` | zellij → `~/.config/zellij` |
+| `nvim` | neovim, ripgrep, fd, fzf, tree-sitter-cli, node → `~/.config/nvim` + provision |
+| `shell` | oh-my-zsh, p10k, zsh plugins, eza → `.zshrc`, `.p10k.zsh`, `.vimrc` |
+| `devtools` | Miniforge, nvm+Node, Grok → init in `~/.zshrc.local` |
+
+| Mode | Components |
+|------|-----------|
+| `full` | everything (+ `apps`, `macos`) |
+| `minimal` | alacritty, zellij, nvim — **leaves your shell untouched** |
+| `select` | interactive checklist |
 
 ```sh
-./install.sh             # all steps
-./install.sh symlinks    # relink dotfiles
-./install.sh brew        # install/update Brewfile
-./install.sh tools       # install miniforge / nvm / grok
-./install.sh nvim        # provision plugins/servers
+./install.sh                     # interactive menu
+./install.sh --mode full         # or minimal / select
+./install.sh alacritty nvim      # run specific components
 ```
 
 ## Adding things
 
-- App: add `cask "name"` to `Brewfile`, run `./install.sh brew`
-- Dotfile: add to `config/` or `home/`, add a `link` line in `step_symlinks`, run `./install.sh symlinks`
-- macOS tweak: edit `step_macos` in `install.sh`
+- App: add `cask "name"` to `Brewfile`, run `./install.sh apps`
+- Dotfile: add to `config/` or `home/`, add a `link` line in the relevant `comp_*` function, re-run that component
+- macOS tweak: edit `comp_macos` in `install.sh`
 
 ## Layout
 

@@ -37,6 +37,8 @@ else
   git clone "$REPO_URL" "$DEST"
 fi
 
-# 3. Hand off to the idempotent installer (stdin is still the terminal here).
+# 3. Hand off to the idempotent installer (stdin is still the terminal here, so
+#    its interactive mode menu works). Pass through any args; MAC_SETUP_MODE is
+#    inherited via the environment for unattended runs.
 info "Running install.sh"
-exec "$DEST/install.sh"
+exec "$DEST/install.sh" "$@"

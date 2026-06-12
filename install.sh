@@ -1,40 +1,44 @@
 #!/usr/bin/env bash
 #
-# install.sh — idempotent machine setup / resurrection.
+# install.sh — component-based machine setup / resurrection.
 #
 # Usage:
-#   ./install.sh              # run all steps in order
-#   ./install.sh symlinks     # run only specific step(s)
-#   ./install.sh brew nvim    # run several steps
+#   ./install.sh                  # interactive menu: full / terminal-only / selective
+#   ./install.sh --mode full      # everything
+#   ./install.sh --mode minimal   # alacritty + zellij + nvim only (leaves shell alone)
+#   ./install.sh --mode select    # interactive component checklist
+#   ./install.sh alacritty nvim   # run specific components directly
 #
-# Steps: homebrew  brew  zsh  tools  symlinks  nvim  macos
+# Components: alacritty  zellij  nvim  shell  devtools   (+ apps, macos in full)
+# One-liner override:  MAC_SETUP_MODE=minimal /bin/bash -c "$(curl -fsSL …/bootstrap.sh)"
 #
 # Safe by design: never runs as root, backs up any existing file before
-# linking, and every step is re-runnable.
+# linking, and every component is idempotent / re-runnable.
 
 set -euo pipefail
 
-# Resolve the repo root from this script's location (works wherever cloned).
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TS="$(date +%Y%m%d%H%M%S)"
+LOCAL="$HOME/.zshrc.local"
 
 log()  { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[!]\033[0m %s\n' "$*"; }
 
-# Refuse to run as root — we want files owned by the user.
 if [ "$(id -u)" -eq 0 ]; then
   echo "Do not run install.sh as root." >&2
   exit 1
 fi
 
-# --- symlink helper: back up an existing real file/dir, then link -------------
+# --- helpers ------------------------------------------------------------------
+
+# back up an existing real file/dir, then symlink
 link() {  # link <repo-relative-source> <absolute-destination>
   local src="$REPO/$1" dest="$2"
   mkdir -p "$(dirname "$dest")"
   if [ -L "$dest" ]; then
-    ln -sfn "$src" "$dest"                      # already a symlink: repoint
+    ln -sfn "$src" "$dest"
   elif [ -e "$dest" ]; then
-    mv "$dest" "$dest.bak-$TS"                  # real file/dir: back up first
+    mv "$dest" "$dest.bak-$TS"
     warn "backed up $dest -> $dest.bak-$TS"
     ln -sfn "$src" "$dest"
   else
@@ -45,10 +49,21 @@ link() {  # link <repo-relative-source> <absolute-destination>
 
 clone_if_absent() { [ -d "$2" ] || git clone --depth=1 "$1" "$2"; }
 
-# Machine-specific shell init lives in ~/.zshrc.local (untracked), sourced at
-# the end of the shared .zshrc. Append a block once, keyed by a unique marker.
-LOCAL="$HOME/.zshrc.local"
-ensure_local_block() {  # ensure_local_block <marker>   (block text on stdin)
+# idempotent brew install (handles formulae and casks)
+brew_install() {
+  local pkg
+  for pkg in "$@"; do
+    if brew list "$pkg" >/dev/null 2>&1 || brew list --cask "$pkg" >/dev/null 2>&1; then
+      :
+    else
+      log "brew install $pkg"
+      brew install "$pkg"
+    fi
+  done
+}
+
+# append a block to ~/.zshrc.local once, keyed by a unique marker (block on stdin)
+ensure_local_block() {  # ensure_local_block <marker>
   local marker="$1" block
   block="$(cat)"
   touch "$LOCAL"
@@ -57,8 +72,15 @@ ensure_local_block() {  # ensure_local_block <marker>   (block text on stdin)
   log "added '$marker' to ~/.zshrc.local"
 }
 
-# --- steps --------------------------------------------------------------------
-step_homebrew() {
+provision_nvim() {
+  log "installing nvim plugins at locked versions (Lazy restore)"
+  nvim --headless "+Lazy! restore" +qa || true
+  log "provisioning treesitter parsers + Mason servers (this can take a while)"
+  nvim --headless -c "luafile $REPO/scripts/nvim-provision.lua" -c "qa!" || true
+}
+
+# --- bootstrap (always runs first; everything needs Homebrew) -----------------
+bootstrap_homebrew() {
   if ! command -v brew >/dev/null 2>&1; then
     log "installing Homebrew"
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
@@ -66,20 +88,34 @@ step_homebrew() {
     log "Homebrew already installed"
   fi
   eval "$(/opt/homebrew/bin/brew shellenv)"
-  # ensure future login shells get brew on PATH (~/.zprofile is machine-local,
-  # not tracked in this repo, because the path differs per architecture)
   if ! grep -q 'brew shellenv' "$HOME/.zprofile" 2>/dev/null; then
     echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> "$HOME/.zprofile"
     log "added brew shellenv to ~/.zprofile"
   fi
 }
 
-step_brew() {
-  log "brew bundle (installing CLI tools, fonts, casks)"
-  brew bundle --file="$REPO/Brewfile"
+# --- components ---------------------------------------------------------------
+comp_alacritty() {
+  log "[alacritty]"
+  brew_install alacritty font-meslo-lg-nerd-font
+  link config/alacritty "$HOME/.config/alacritty"
 }
 
-step_zsh() {
+comp_zellij() {
+  log "[zellij]"
+  brew_install zellij
+  link config/zellij "$HOME/.config/zellij"
+}
+
+comp_nvim() {
+  log "[nvim]"
+  brew_install neovim ripgrep fd fzf tree-sitter-cli node
+  link config/nvim "$HOME/.config/nvim"
+  provision_nvim
+}
+
+comp_shell() {
+  log "[shell]"
   if [ ! -d "$HOME/.oh-my-zsh" ]; then
     log "installing oh-my-zsh"
     RUNZSH=no KEEP_ZSHRC=yes CHSH=no \
@@ -88,13 +124,18 @@ step_zsh() {
     log "oh-my-zsh already installed"
   fi
   local custom="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}"
-  clone_if_absent https://github.com/romkatv/powerlevel10k.git            "$custom/themes/powerlevel10k"
-  clone_if_absent https://github.com/zsh-users/zsh-autosuggestions        "$custom/plugins/zsh-autosuggestions"
-  clone_if_absent https://github.com/zsh-users/zsh-syntax-highlighting.git "$custom/plugins/zsh-syntax-highlighting"
+  clone_if_absent https://github.com/romkatv/powerlevel10k.git             "$custom/themes/powerlevel10k"
+  clone_if_absent https://github.com/zsh-users/zsh-autosuggestions         "$custom/plugins/zsh-autosuggestions"
+  clone_if_absent https://github.com/zsh-users/zsh-syntax-highlighting.git  "$custom/plugins/zsh-syntax-highlighting"
+  brew_install fzf eza font-meslo-lg-nerd-font
+  link home/zshrc    "$HOME/.zshrc"
+  link home/p10k.zsh "$HOME/.p10k.zsh"
+  link home/vimrc    "$HOME/.vimrc"
 }
 
-step_tools() {
-  # --- Miniforge (conda + mamba) -> ~/miniforge3 (batch mode skips rc editing)
+comp_devtools() {
+  log "[devtools]"
+  # Miniforge (conda + mamba) -> ~/miniforge3 (batch mode skips rc editing)
   if [ ! -x "$HOME/miniforge3/bin/conda" ]; then
     log "installing Miniforge to ~/miniforge3"
     local tmp; tmp="$(mktemp)"
@@ -121,7 +162,7 @@ unset __conda_setup
 # <<< conda initialize <<<
 EOF
 
-  # --- nvm + Node LTS (skip if any nvm already present)
+  # nvm + Node LTS (skip if any nvm already present)
   if [ ! -s "$HOME/.nvm/nvm.sh" ] && ! brew list nvm >/dev/null 2>&1; then
     log "installing nvm"; brew install nvm
   fi
@@ -131,7 +172,6 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "$HOME/.nvm/nvm.sh" ] && \. "$HOME/.nvm/nvm.sh"
 [ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"
 EOF
-  # install Node LTS if nvm has no node yet
   export NVM_DIR="$HOME/.nvm"
   if [ -s "$HOME/.nvm/nvm.sh" ]; then . "$HOME/.nvm/nvm.sh"
   elif [ -s "/opt/homebrew/opt/nvm/nvm.sh" ]; then . "/opt/homebrew/opt/nvm/nvm.sh"; fi
@@ -139,7 +179,7 @@ EOF
     log "installing Node LTS via nvm"; nvm install --lts
   fi
 
-  # --- Grok CLI
+  # Grok CLI
   if [ ! -x "$HOME/.grok/bin/grok" ]; then
     log "installing grok CLI"
     curl -fsSL https://x.ai/cli/install.sh | bash
@@ -153,63 +193,100 @@ fpath=(~/.grok/completions/zsh $fpath)
 autoload -Uz compinit && compinit -C
 # <<< grok installer <<<
 EOF
-  # grok's installer may append its block to ~/.zshrc; if that's our symlink,
-  # the block lands in the tracked repo file. Strip it so the repo stays clean
-  # (the canonical block lives in ~/.zshrc.local, added above).
+  # grok's installer may append its block to ~/.zshrc (our symlink); strip it
+  # from the tracked repo file so the canonical block stays only in .zshrc.local.
   sed -i '' '/# >>> grok installer >>>/,/# <<< grok installer <<</d' "$REPO/home/zshrc" 2>/dev/null || true
 }
 
-step_symlinks() {
-  log "linking config files (existing files are backed up)"
-  link config/alacritty "$HOME/.config/alacritty"
-  link config/zellij    "$HOME/.config/zellij"
-  link config/nvim      "$HOME/.config/nvim"
-  link home/zshrc       "$HOME/.zshrc"
-  link home/p10k.zsh    "$HOME/.p10k.zsh"
-  link home/vimrc       "$HOME/.vimrc"
+comp_apps() {
+  log "[apps] brew bundle (GUI apps + full package set)"
+  brew bundle --file="$REPO/Brewfile"
 }
 
-step_nvim() {
-  if ! command -v nvim >/dev/null 2>&1; then
-    warn "nvim not installed yet — run the 'brew' step first; skipping"
-    return 0
-  fi
-  log "installing nvim plugins at locked versions (Lazy restore)"
-  nvim --headless "+Lazy! restore" +qa || true
-  log "provisioning treesitter parsers + Mason servers (this can take a while)"
-  nvim --headless -c "luafile $REPO/scripts/nvim-provision.lua" -c "qa!" || true
+comp_macos() {
+  log "[macos] no system tweaks configured yet (edit comp_macos to add)"
 }
 
-step_macos() {
-  # Scaffold for future `defaults write` system tweaks. Nothing aggressive by
-  # default. Example (commented):
-  #   defaults write com.apple.dock autohide -bool true && killall Dock
-  log "no macOS system tweaks configured yet (edit step_macos to add)"
-}
-
-# --- orchestration ------------------------------------------------------------
-ALL_STEPS=(homebrew brew zsh tools symlinks nvim macos)
-
-run_step() {
+run_component() {
   case "$1" in
-    homebrew) step_homebrew ;;
-    brew)     step_brew ;;
-    zsh)      step_zsh ;;
-    tools)    step_tools ;;
-    symlinks) step_symlinks ;;
-    nvim)     step_nvim ;;
-    macos)    step_macos ;;
-    *) echo "unknown step: $1 (valid: ${ALL_STEPS[*]})" >&2; exit 1 ;;
+    alacritty) comp_alacritty ;;
+    zellij)    comp_zellij ;;
+    nvim)      comp_nvim ;;
+    shell)     comp_shell ;;
+    devtools)  comp_devtools ;;
+    apps)      comp_apps ;;
+    macos)     comp_macos ;;
+    *) echo "unknown component: $1" >&2; exit 1 ;;
   esac
 }
 
-main() {
-  if [ "$#" -eq 0 ]; then
-    for s in "${ALL_STEPS[@]}"; do run_step "$s"; done
-  else
-    for s in "$@"; do run_step "$s"; done
-  fi
-  log "done."
+# --- mode / component selection ----------------------------------------------
+choose_mode() {  # sets MODE
+  printf '\nSelect install mode:\n'
+  printf '  1) full          — alacritty, zellij, nvim, shell, dev tools, apps\n'
+  printf '  2) terminal-only — alacritty, zellij, nvim (leaves your shell alone)\n'
+  printf '  3) selective     — choose components\n'
+  printf 'Choice [1-3]: '
+  local c; read -r c </dev/tty
+  case "$c" in
+    1) MODE=full ;;
+    2) MODE=minimal ;;
+    3) MODE=select ;;
+    *) echo "invalid choice: $c" >&2; exit 1 ;;
+  esac
 }
 
-main "$@"
+choose_components() {  # sets COMPONENTS
+  printf '\nSelect components by number (space-separated, e.g. "1 3"):\n'
+  printf '  1) alacritty\n  2) zellij\n  3) nvim\n  4) shell\n  5) devtools\n'
+  printf 'Components: '
+  local nums n; read -r nums </dev/tty
+  COMPONENTS=""
+  for n in $nums; do
+    case "$n" in
+      1) COMPONENTS="$COMPONENTS alacritty" ;;
+      2) COMPONENTS="$COMPONENTS zellij" ;;
+      3) COMPONENTS="$COMPONENTS nvim" ;;
+      4) COMPONENTS="$COMPONENTS shell" ;;
+      5) COMPONENTS="$COMPONENTS devtools" ;;
+      *) warn "ignoring invalid choice: $n" ;;
+    esac
+  done
+}
+
+# --- main ---------------------------------------------------------------------
+MODE=""
+ARGS=""
+COMPONENTS=""
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --mode)   MODE="${2:-}"; shift 2 ;;
+    --mode=*) MODE="${1#*=}"; shift ;;
+    -h|--help) sed -n '2,18p' "$0"; exit 0 ;;
+    *) ARGS="$ARGS $1"; shift ;;
+  esac
+done
+[ -z "$MODE" ] && MODE="${MAC_SETUP_MODE:-}"
+
+if [ -n "$ARGS" ]; then
+  COMPONENTS="$ARGS"                       # explicit component names win
+else
+  [ -z "$MODE" ] && choose_mode            # no mode given -> interactive menu
+  case "$MODE" in
+    full)                     COMPONENTS="alacritty zellij nvim shell devtools apps macos" ;;
+    minimal|terminal|terminal-only) COMPONENTS="alacritty zellij nvim" ;;
+    select|selective)         choose_components ;;
+    *) echo "unknown mode: $MODE (use full|minimal|select)" >&2; exit 1 ;;
+  esac
+fi
+
+if [ -z "${COMPONENTS// /}" ]; then
+  warn "nothing selected; exiting"
+  exit 0
+fi
+
+log "components:${COMPONENTS}"
+bootstrap_homebrew
+for c in $COMPONENTS; do run_component "$c"; done
+log "done."
