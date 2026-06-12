@@ -54,6 +54,22 @@ mac-setup/
 └── home/                        # -> ~/.zshrc, ~/.p10k.zsh, ~/.vimrc
 ```
 
+## Machine-specific config
+
+The tracked `.zshrc` is portable. Per-machine tool inits (conda, nvm, language
+managers, app PATHs, secrets) go in `~/.zshrc.local`, which is untracked and
+sourced at the end of `.zshrc` if present.
+
+## Migrating an already-configured machine
+
+`install.sh symlinks` backs up any existing file to `name.bak-<timestamp>`
+before linking, and is idempotent (re-runs make no new backups). After the
+first run on a machine that already had a setup:
+
+1. Open the backup, e.g. `~/.zshrc.bak-<timestamp>`.
+2. Move its machine-specific bits (conda, nvm, work paths) into `~/.zshrc.local`.
+3. `source ~/.zshrc` or open a new shell.
+
 ## Notes
 
 - Apple Silicon only; assumes Homebrew at `/opt/homebrew`
