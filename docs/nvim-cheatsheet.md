@@ -78,7 +78,8 @@ Markdown files render in-buffer automatically via render-markdown.nvim. The raw 
 
 | Key | Action |
 |-----|--------|
-| `Space t m` | toggle rendering on/off |
+| `Space t m` | toggle in-buffer rendering on/off |
+| `Space m p` | toggle live browser preview, good for wide tables and mermaid |
 
 ## Formatting
 

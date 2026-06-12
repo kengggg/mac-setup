@@ -243,6 +243,23 @@ require("lazy").setup({
       { "<leader>tm", "<cmd>RenderMarkdown toggle<cr>", desc = "Toggle markdown render" },
     },
   },
+
+  -- Live browser preview for markdown (real HTML; good for very wide tables,
+  -- mermaid diagrams, etc.). Uses deno to build its preview server.
+  {
+    "toppair/peek.nvim",
+    ft = { "markdown" },
+    build = "deno task --quiet build:fast",
+    config = function()
+      local peek = require("peek")
+      peek.setup()
+      vim.api.nvim_create_user_command("PeekOpen", peek.open, {})
+      vim.api.nvim_create_user_command("PeekClose", peek.close, {})
+      vim.keymap.set("n", "<leader>mp", function()
+        if peek.is_open() then peek.close() else peek.open() end
+      end, { desc = "Markdown preview (browser)" })
+    end,
+  },
 }, {
   ui = { border = "rounded" },
   checker = { enabled = false },  -- don't auto-check for plugin updates
