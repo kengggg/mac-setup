@@ -109,7 +109,7 @@ comp_zellij() {
 
 comp_nvim() {
   log "[nvim]"
-  brew_install neovim ripgrep fd fzf tree-sitter-cli node
+  brew_install neovim ripgrep fd fzf tree-sitter-cli node lazygit
   link config/nvim "$HOME/.config/nvim"
   provision_nvim
 }

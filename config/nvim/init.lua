@@ -229,6 +229,17 @@ require("lazy").setup({
   -- Git signs in the gutter + hunk actions ------------------------------------
   { "lewis6991/gitsigns.nvim", opts = {} },
 
+  -- lazygit in a floating window (full git workflow: stage/commit/branch/push).
+  -- Uses the lazygit binary from the Brewfile; opens in the current file's repo.
+  {
+    "kdheepak/lazygit.nvim",
+    dependencies = { "nvim-lua/plenary.nvim" },
+    cmd = { "LazyGit", "LazyGitCurrentFile" },
+    keys = {
+      { "<leader>gg", "<cmd>LazyGitCurrentFile<cr>", desc = "LazyGit (repo of current file)" },
+    },
+  },
+
   -- Statusline ----------------------------------------------------------------
   {
     "nvim-lualine/lualine.nvim",

@@ -61,6 +61,21 @@ Inside a picker: `Ctrl j` / `Ctrl k` move, `Enter` open, `Ctrl v` open in vsplit
 | `g c c` | toggle comment on line |
 | `g c` | toggle comment on selection, in visual mode |
 
+## Git — lazygit
+
+`Space g g` opens lazygit floating over the editor, in the current file's repo. Single-key driven; `?` shows all keys, `q` quits.
+
+| Key | Action |
+|-----|--------|
+| `Space` | stage / unstage file or hunk |
+| `c` | commit |
+| `P` | push |
+| `p` | pull |
+| `b` | branch menu |
+| `z` | undo |
+| `Enter` | drill into a file's hunks |
+| `?` | full key help |
+
 ## Git — gitsigns
 
 Signs show in the gutter. Commands:
