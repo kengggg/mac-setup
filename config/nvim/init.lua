@@ -141,7 +141,13 @@ require("lazy").setup({
     branch = "v3.x",
     dependencies = { "nvim-lua/plenary.nvim", "MunifTanjim/nui.nvim", "nvim-tree/nvim-web-devicons" },
     config = function()
-      require("neo-tree").setup({ close_if_last_window = true })
+      require("neo-tree").setup({
+        close_if_last_window = true,
+        filesystem = {
+          use_libuv_file_watcher = true,  -- auto-refresh tree on disk changes
+          follow_current_file = { enabled = true },  -- highlight the open file
+        },
+      })
       map("n", "<leader>e", "<cmd>Neotree toggle<CR>", { desc = "Toggle file explorer" })
     end,
   },
