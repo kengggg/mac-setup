@@ -20,6 +20,11 @@ Installs Command Line Tools, clones to `~/Workspaces/mac-setup`, runs `install.s
 
 Configs are symlinked from this repo; commit + push to sync across machines.
 
+## Cheat sheets
+
+- [Zellij](docs/zellij-cheatsheet.md)
+- [Neovim](docs/nvim-cheatsheet.md)
+
 ## Steps
 
 Order: `homebrew → brew → zsh → symlinks → nvim → macos`. Idempotent; existing files backed up to `name.bak-<timestamp>`.
