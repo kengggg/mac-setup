@@ -158,6 +158,9 @@ else
     fi
 fi
 unset __conda_setup
+# Set MAMBA_ROOT_PREFIX before sourcing mamba.sh — otherwise mamba 2.0 prints
+# warnings during shell init, which trips Powerlevel10k's instant prompt.
+export MAMBA_ROOT_PREFIX="$HOME/miniforge3"
 [ -f "$HOME/miniforge3/etc/profile.d/mamba.sh" ] && . "$HOME/miniforge3/etc/profile.d/mamba.sh"
 # <<< conda initialize <<<
 EOF
