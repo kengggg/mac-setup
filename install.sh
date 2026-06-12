@@ -277,7 +277,7 @@ if [ -n "$ARGS" ]; then
 else
   [ -z "$MODE" ] && choose_mode            # no mode given -> interactive menu
   case "$MODE" in
-    full)                     COMPONENTS="alacritty zellij nvim shell devtools apps macos" ;;
+    full)                     COMPONENTS="alacritty zellij nvim devtools shell apps macos" ;;
     minimal|terminal|terminal-only) COMPONENTS="alacritty zellij nvim" ;;
     select|selective)         choose_components ;;
     *) echo "unknown mode: $MODE (use full|minimal|select)" >&2; exit 1 ;;
