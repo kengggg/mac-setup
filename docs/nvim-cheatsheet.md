@@ -19,6 +19,8 @@ Inside a picker: `Ctrl j` / `Ctrl k` move, `Enter` open, `Ctrl v` open in vsplit
 | Key | Action |
 |-----|--------|
 | `Space e` | toggle file explorer |
+| `R` | refresh explorer manually — auto-refresh is on via file watcher |
+| `a` / `d` / `r` | in explorer: add / delete / rename |
 | `Space w` | save file |
 | `Space q` | close buffer |
 
