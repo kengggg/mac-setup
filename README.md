@@ -74,6 +74,22 @@ mac-setup/
 └── home/                        # -> ~/.zshrc, ~/.p10k.zsh, ~/.vimrc
 ```
 
+## Updating other machines
+
+Configs are symlinks — `git pull` updates them instantly. Re-run a component only when packages or provisioning changed:
+
+```sh
+cd ~/Workspaces/mac-setup && git pull
+```
+
+| What changed | Then run |
+|--------------|----------|
+| configs only — alacritty, zellij, init.lua tweaks | nothing |
+| nvim plugins, parsers, LSP servers, nvim deps | `./install.sh nvim` |
+| Brewfile apps | `./install.sh apps` |
+| shell, dotfiles, omz plugins | `./install.sh shell` |
+| dev tools | `./install.sh devtools` |
+
 ## Machine-specific config
 
 The tracked `.zshrc` is portable. Per-machine tool inits (conda, nvm, language
