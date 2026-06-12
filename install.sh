@@ -7,7 +7,7 @@
 #   ./install.sh symlinks     # run only specific step(s)
 #   ./install.sh brew nvim    # run several steps
 #
-# Steps: homebrew  brew  zsh  symlinks  nvim  macos
+# Steps: homebrew  brew  zsh  tools  symlinks  nvim  macos
 #
 # Safe by design: never runs as root, backs up any existing file before
 # linking, and every step is re-runnable.
@@ -45,6 +45,18 @@ link() {  # link <repo-relative-source> <absolute-destination>
 
 clone_if_absent() { [ -d "$2" ] || git clone --depth=1 "$1" "$2"; }
 
+# Machine-specific shell init lives in ~/.zshrc.local (untracked), sourced at
+# the end of the shared .zshrc. Append a block once, keyed by a unique marker.
+LOCAL="$HOME/.zshrc.local"
+ensure_local_block() {  # ensure_local_block <marker>   (block text on stdin)
+  local marker="$1" block
+  block="$(cat)"
+  touch "$LOCAL"
+  grep -qF "$marker" "$LOCAL" && return 0
+  printf '\n%s\n' "$block" >> "$LOCAL"
+  log "added '$marker' to ~/.zshrc.local"
+}
+
 # --- steps --------------------------------------------------------------------
 step_homebrew() {
   if ! command -v brew >/dev/null 2>&1; then
@@ -81,6 +93,72 @@ step_zsh() {
   clone_if_absent https://github.com/zsh-users/zsh-syntax-highlighting.git "$custom/plugins/zsh-syntax-highlighting"
 }
 
+step_tools() {
+  # --- Miniforge (conda + mamba) -> ~/miniforge3 (batch mode skips rc editing)
+  if [ ! -x "$HOME/miniforge3/bin/conda" ]; then
+    log "installing Miniforge to ~/miniforge3"
+    local tmp; tmp="$(mktemp)"
+    curl -fsSL "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-MacOSX-$(uname -m).sh" -o "$tmp"
+    bash "$tmp" -b -p "$HOME/miniforge3"
+    rm -f "$tmp"
+  else
+    log "Miniforge already installed"
+  fi
+  ensure_local_block "# >>> conda initialize >>>" <<'EOF'
+# >>> conda initialize >>>
+__conda_setup="$("$HOME/miniforge3/bin/conda" 'shell.zsh' 'hook' 2> /dev/null)"
+if [ $? -eq 0 ]; then
+    eval "$__conda_setup"
+else
+    if [ -f "$HOME/miniforge3/etc/profile.d/conda.sh" ]; then
+        . "$HOME/miniforge3/etc/profile.d/conda.sh"
+    else
+        export PATH="$HOME/miniforge3/bin:$PATH"
+    fi
+fi
+unset __conda_setup
+[ -f "$HOME/miniforge3/etc/profile.d/mamba.sh" ] && . "$HOME/miniforge3/etc/profile.d/mamba.sh"
+# <<< conda initialize <<<
+EOF
+
+  # --- nvm + Node LTS (skip if any nvm already present)
+  if [ ! -s "$HOME/.nvm/nvm.sh" ] && ! brew list nvm >/dev/null 2>&1; then
+    log "installing nvm"; brew install nvm
+  fi
+  mkdir -p "$HOME/.nvm"
+  ensure_local_block "export NVM_DIR=" <<'EOF'
+export NVM_DIR="$HOME/.nvm"
+[ -s "$HOME/.nvm/nvm.sh" ] && \. "$HOME/.nvm/nvm.sh"
+[ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"
+EOF
+  # install Node LTS if nvm has no node yet
+  export NVM_DIR="$HOME/.nvm"
+  if [ -s "$HOME/.nvm/nvm.sh" ]; then . "$HOME/.nvm/nvm.sh"
+  elif [ -s "/opt/homebrew/opt/nvm/nvm.sh" ]; then . "/opt/homebrew/opt/nvm/nvm.sh"; fi
+  if command -v nvm >/dev/null 2>&1 && ! nvm ls --no-colors 2>/dev/null | grep -qE 'v[0-9]'; then
+    log "installing Node LTS via nvm"; nvm install --lts
+  fi
+
+  # --- Grok CLI
+  if [ ! -x "$HOME/.grok/bin/grok" ]; then
+    log "installing grok CLI"
+    curl -fsSL https://x.ai/cli/install.sh | bash
+  else
+    log "grok already installed"
+  fi
+  ensure_local_block "# >>> grok installer >>>" <<'EOF'
+# >>> grok installer >>>
+export PATH="$HOME/.grok/bin:$PATH"
+fpath=(~/.grok/completions/zsh $fpath)
+autoload -Uz compinit && compinit -C
+# <<< grok installer <<<
+EOF
+  # grok's installer may append its block to ~/.zshrc; if that's our symlink,
+  # the block lands in the tracked repo file. Strip it so the repo stays clean
+  # (the canonical block lives in ~/.zshrc.local, added above).
+  sed -i '' '/# >>> grok installer >>>/,/# <<< grok installer <<</d' "$REPO/home/zshrc" 2>/dev/null || true
+}
+
 step_symlinks() {
   log "linking config files (existing files are backed up)"
   link config/alacritty "$HOME/.config/alacritty"
@@ -110,13 +188,14 @@ step_macos() {
 }
 
 # --- orchestration ------------------------------------------------------------
-ALL_STEPS=(homebrew brew zsh symlinks nvim macos)
+ALL_STEPS=(homebrew brew zsh tools symlinks nvim macos)
 
 run_step() {
   case "$1" in
     homebrew) step_homebrew ;;
     brew)     step_brew ;;
     zsh)      step_zsh ;;
+    tools)    step_tools ;;
     symlinks) step_symlinks ;;
     nvim)     step_nvim ;;
     macos)    step_macos ;;

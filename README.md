@@ -16,6 +16,7 @@ Installs Command Line Tools, clones to `~/Workspaces/mac-setup`, runs `install.s
 |-------|----------|
 | Brew | `zellij` `neovim` `fzf` `fd` `ripgrep` `eza` `gh` `node`, MesloLGS Nerd Font, Alacritty, + apps in `Brewfile` |
 | Shell | oh-my-zsh, Powerlevel10k, `zsh-autosuggestions`, `zsh-syntax-highlighting` |
+| Dev tools | Miniforge (conda + mamba), nvm + Node LTS, Grok CLI — init written to `~/.zshrc.local` |
 | Configs | Alacritty, Zellij, Neovim, `.zshrc`, `.p10k.zsh`, `.vimrc` |
 
 Configs are symlinked from this repo; commit + push to sync across machines.
@@ -27,12 +28,13 @@ Configs are symlinked from this repo; commit + push to sync across machines.
 
 ## Steps
 
-Order: `homebrew → brew → zsh → symlinks → nvim → macos`. Idempotent; existing files backed up to `name.bak-<timestamp>`.
+Order: `homebrew → brew → zsh → tools → symlinks → nvim → macos`. Idempotent; existing files backed up to `name.bak-<timestamp>`.
 
 ```sh
 ./install.sh             # all steps
 ./install.sh symlinks    # relink dotfiles
 ./install.sh brew        # install/update Brewfile
+./install.sh tools       # install miniforge / nvm / grok
 ./install.sh nvim        # provision plugins/servers
 ```
 
