@@ -14,26 +14,35 @@ local parsers = {
 }
 pcall(function() require("nvim-treesitter").install(parsers):wait(600000) end)
 
--- 2. Mason servers + formatters (must match init.lua's server list + tools)
+-- 2. Mason servers + formatters (must match init.lua's server list + tools).
+--    The config's mason-lspconfig / mason-tool-installer also start installing
+--    on startup, so we must NOT call install() on a package that's already
+--    installing (Package:install asserts in that case), and must NOT exit while
+--    anything is still installing (qa! would abort it — e.g. prettier). So we
+--    wait until every package is installed AND idle, triggering only the ones
+--    that are genuinely missing-and-not-already-installing.
+-- Run with MAC_SETUP_PROVISION=1 so init.lua's auto-installers stay off and we
+-- are the only installer. We install each missing package with a COMPLETION
+-- CALLBACK (the authoritative "done" signal — is_installed() flips true before
+-- the install handle finishes, which is what aborted prettier before) and wait
+-- until every callback has fired.
 local registry = require("mason-registry")
 local want = {
   "lua-language-server", "pyright", "ruff",
   "typescript-language-server", "html-lsp", "css-lsp", "json-lsp",
   "stylua", "prettier",
 }
-local function ensure()
+local pending, started = 0, false
+registry.refresh(function()
   for _, name in ipairs(want) do
     local ok, pkg = pcall(registry.get_package, name)
-    if ok and not pkg:is_installed() then pkg:install() end
+    if ok and not pkg:is_installed() and not pkg:is_installing() then
+      pending = pending + 1
+      pkg:install(nil, function() pending = pending - 1 end)  -- fires when truly done
+    end
   end
-end
-registry.refresh(function() ensure() end)
-vim.wait(600000, function()
-  for _, name in ipairs(want) do
-    local ok, pkg = pcall(registry.get_package, name)
-    if not (ok and pkg:is_installed()) then return false end
-  end
-  return true
-end, 1000)
+  started = true
+end)
 
-print("nvim provisioning complete")
+local settled = vim.wait(600000, function() return started and pending == 0 end, 200)
+print("nvim provisioning " .. (settled and "complete" or "timed out (some packages may be unfinished)"))

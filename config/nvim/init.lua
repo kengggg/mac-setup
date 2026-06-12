@@ -10,6 +10,11 @@
 vim.g.mapleader = " "         -- Space
 vim.g.maplocalleader = " "
 
+-- Headless provisioning sets MAC_SETUP_PROVISION=1. In that mode the config's
+-- auto-installers stay OFF so the provision script is the SOLE installer and
+-- can wait deterministically (see scripts/nvim-provision.lua).
+local PROVISION = vim.env.MAC_SETUP_PROVISION == "1"
+
 --------------------------------------------------------------------------------
 -- 2. Core options  (ported from your ~/.vimrc, expanded for an IDE)
 --------------------------------------------------------------------------------
@@ -170,7 +175,7 @@ require("lazy").setup({
         "ts_ls", "html", "cssls", "jsonls",-- JS/TS + web
       }
       require("mason-lspconfig").setup({
-        ensure_installed = servers,
+        ensure_installed = PROVISION and {} or servers,  -- provision installs these itself
         -- Enable our servers explicitly rather than auto-enabling every
         -- installed mason package (which would wrongly start formatters
         -- like stylua that happen to ship an lsp/ config).
@@ -214,7 +219,10 @@ require("lazy").setup({
     "WhoIsSethDaniel/mason-tool-installer.nvim",
     dependencies = { "mason-org/mason.nvim" },
     config = function()
-      require("mason-tool-installer").setup({ ensure_installed = { "stylua", "prettier" } })
+      require("mason-tool-installer").setup({
+        ensure_installed = { "stylua", "prettier" },
+        run_on_start = not PROVISION,  -- provision installs these itself
+      })
     end,
   },
 

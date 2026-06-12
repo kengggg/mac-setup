@@ -76,7 +76,7 @@ provision_nvim() {
   log "installing nvim plugins at locked versions (Lazy restore)"
   nvim --headless "+Lazy! restore" +qa || true
   log "provisioning treesitter parsers + Mason servers (this can take a while)"
-  nvim --headless -c "luafile $REPO/scripts/nvim-provision.lua" -c "qa!" || true
+  MAC_SETUP_PROVISION=1 nvim --headless -c "luafile $REPO/scripts/nvim-provision.lua" -c "qa!" || true
 }
 
 # --- bootstrap (always runs first; everything needs Homebrew) -----------------
