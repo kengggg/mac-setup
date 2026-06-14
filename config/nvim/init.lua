@@ -58,6 +58,16 @@ map("n", "<C-j>", "<C-w>j", { desc = "Window down" })
 map("n", "<C-k>", "<C-w>k", { desc = "Window up" })
 map("n", "<C-l>", "<C-w>l", { desc = "Window right" })
 
+-- Auto-create missing parent directories on save (avoids E212 when editing
+-- a path like config/new.py where config/ doesn't exist yet).
+vim.api.nvim_create_autocmd("BufWritePre", {
+  callback = function(ev)
+    if ev.match:match("^%w+://") then return end  -- skip URLs/scp/etc.
+    local dir = vim.fn.fnamemodify(ev.match, ":p:h")
+    if vim.fn.isdirectory(dir) == 0 then vim.fn.mkdir(dir, "p") end
+  end,
+})
+
 --------------------------------------------------------------------------------
 -- 4. Bootstrap lazy.nvim  (auto-clones itself on first launch)
 --------------------------------------------------------------------------------
