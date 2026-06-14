@@ -19,6 +19,7 @@ Inside a picker: `Ctrl j` / `Ctrl k` move, `Enter` open, `Ctrl v` open in vsplit
 | Key | Action |
 |-----|--------|
 | `Space e` | toggle file explorer |
+| `Space E` | focus the explorer (jump into it) |
 | `R` | refresh explorer manually — auto-refresh is on via file watcher |
 | `a` / `d` / `r` | in explorer: add / delete / rename |
 | `Space w` | save file |
@@ -29,8 +30,11 @@ Inside a picker: `Ctrl j` / `Ctrl k` move, `Enter` open, `Ctrl v` open in vsplit
 | Key | Action |
 |-----|--------|
 | `Shift l` / `Shift h` | next / previous buffer |
-| `Ctrl h` `Ctrl j` `Ctrl k` `Ctrl l` | move between splits |
+| `Ctrl w` then `h/j/k/l` | move between splits (reliable inside zellij) |
+| `Ctrl w w` | cycle to next split |
 | `:vsplit` / `:split` | split vertical / horizontal |
+
+> Note: bare `Ctrl h/j/k/l` also move between splits, but **`Ctrl h` is intercepted by zellij** (move mode), so prefer `Ctrl w` or `Space E` to reach the explorer.
 
 ## Code — LSP
 

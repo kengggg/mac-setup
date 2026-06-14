@@ -159,6 +159,8 @@ require("lazy").setup({
         },
       })
       map("n", "<leader>e", "<cmd>Neotree toggle<CR>", { desc = "Toggle file explorer" })
+      -- Focus the explorer (Ctrl-h is eaten by zellij's move mode, so use this)
+      map("n", "<leader>E", "<cmd>Neotree focus<CR>", { desc = "Focus file explorer" })
     end,
   },
 
