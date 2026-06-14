@@ -21,7 +21,11 @@ Inside a picker: `Ctrl j` / `Ctrl k` move, `Enter` open, `Ctrl v` open in vsplit
 | `Space e` | toggle file explorer |
 | `Space E` | focus the explorer (jump into it) |
 | `R` | refresh explorer manually — auto-refresh is on via file watcher |
-| `a` / `d` / `r` | in explorer: add / delete / rename |
+| `a` / `A` | in explorer: add file (`name/` = folder) / add directory |
+| `r` / `d` | in explorer: rename / delete |
+| `c` / `m` | in explorer: copy (prompts path = duplicate) / move |
+| `y` / `x` / `p` | in explorer: copy / cut to clipboard, then paste |
+| `i` / `H` / `?` | in explorer: file details / toggle hidden / full key help |
 | `Space w` | save file |
 | `Space q` | close buffer |
 
