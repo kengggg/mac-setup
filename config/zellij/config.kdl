@@ -285,8 +285,8 @@ web_client {
 //   - true
 //   - false (Default)
 // 
-// simplified_ui true
- 
+simplified_ui true
+
 // Enable OSC8 hyperlink output
 // Options:
 //   - true (Default)
@@ -297,7 +297,25 @@ web_client {
 // Choose the theme that is specified in the themes section.
 // Default: default
 // 
-theme "tokyo-night"
+theme "lanna-tone"
+
+// Custom theme matching the Alacritty lanna-tone palette (simple 16-color
+// format; zellij derives the status-bar / ribbon colors from these).
+themes {
+    lanna-tone {
+        fg "#e6d3b2"
+        bg "#160b09"
+        black "#160b09"
+        red "#96171a"
+        green "#418c5b"
+        yellow "#d8b625"
+        blue "#3e5c91"
+        magenta "#7a2b4d"
+        cyan "#3e8c86"
+        white "#d8c7a7"
+        orange "#cc7a3d"
+    }
+}
  
 // Theme to use when the host terminal reports a dark color palette.
 // Requires `theme_light` to also be set; otherwise `theme` is used.
