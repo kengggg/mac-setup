@@ -16,8 +16,9 @@ program = "/bin/zsh"
 args = ["--login", "-c", "exec zellij"]   # bare `zellij` (login shell has brew on PATH) — arch/OS-independent
 
 [window]
-# Borderless-maximized: fills the screen but stays on the current Space.
-startup_mode   = "Maximized"
+# Open at a fixed 120x50 window. Fill the screen on demand with Cmd+Shift+M
+# (borderless-maximized, stays on the current Space) or F11 (native fullscreen).
+startup_mode   = "Windowed"
 decorations    = "Buttonless"   # minimal chrome, keeps macOS rounded corners
 padding.x      = 14
 padding.y      = 12
@@ -25,6 +26,10 @@ dynamic_padding = true          # evenly distribute leftover space
 opacity        = 0.95
 blur           = true
 option_as_alt  = "Both"         # make Option work as Alt for terminal apps
+
+[window.dimensions]
+columns = 120
+lines   = 50
 
 [scrolling]
 history    = 50000
@@ -59,6 +64,7 @@ save_to_clipboard = true
 [keyboard]
 bindings = [
   { key = "Return", mods = "Shift", chars = "\u001B\r" },
-  { key = "F11", action = "ToggleFullscreen" },
+  { key = "F11", action = "ToggleFullscreen" },                       # native fullscreen (own Space)
+  { key = "M", mods = "Command|Shift", action = "ToggleMaximized" },  # borderless-maximized (current Space)
 ]
 # Theme/colors are imported from themes/tokyo-night.toml (see [general] above).
