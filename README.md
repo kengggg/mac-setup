@@ -111,3 +111,4 @@ first run on a machine that already had a setup:
 - Apple Silicon only; assumes Homebrew at `/opt/homebrew`
 - `~/.zprofile` is untracked; `install.sh` writes the brew `shellenv` line
 - Symlinks point into this repo; don't move it without rerunning `./install.sh symlinks`
+- The lanna-tone theme's source of truth is [kengggg/lanna-tone-theme](https://github.com/kengggg/lanna-tone-theme). The alacritty + zellij copies here are synced with `./scripts/sync-theme.sh` — edit the theme repo, not these copies.

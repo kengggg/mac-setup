@@ -1,0 +1,26 @@
+// Lanna tone — a warm, earthy theme for Zellij (component / "styled" format).
+//
+// Install (either works):
+//   A) Paste this whole `themes { … }` block into ~/.config/zellij/config.kdl,
+//      then set:  theme "lanna-tone"
+//   B) Drop this file in ~/.config/zellij/themes/, then set: theme "lanna-tone"
+//
+// Selected / active elements use bright gold (#ffd700) on the dark background
+// for clear contrast; everything else stays on the warm lanna palette.
+themes {
+    lanna-tone {
+        text_unselected      { base 230 211 178; background 22 11 9;  emphasis_0 204 122 61; emphasis_1 98 183 172; emphasis_2 65 140 91; emphasis_3 166 74 107; }
+        text_selected        { base 22 11 9;    background 255 215 0; emphasis_0 201 36 43;  emphasis_1 62 92 145;  emphasis_2 65 140 91; emphasis_3 122 43 77; }
+        ribbon_selected      { base 22 11 9;    background 255 215 0; emphasis_0 201 36 43;  emphasis_1 62 92 145;  emphasis_2 65 140 91; emphasis_3 122 43 77; }
+        ribbon_unselected    { base 230 211 178; background 106 85 70; emphasis_0 204 122 61; emphasis_1 98 183 172; emphasis_2 65 140 91; emphasis_3 166 74 107; }
+        table_title          { base 98 183 172; background 22 11 9;   emphasis_0 204 122 61; emphasis_1 98 183 172; emphasis_2 65 140 91; emphasis_3 166 74 107; }
+        table_cell_selected  { base 22 11 9;    background 255 215 0; emphasis_0 201 36 43;  emphasis_1 62 92 145;  emphasis_2 65 140 91; emphasis_3 122 43 77; }
+        table_cell_unselected{ base 230 211 178; background 22 11 9;  emphasis_0 204 122 61; emphasis_1 98 183 172; emphasis_2 65 140 91; emphasis_3 166 74 107; }
+        list_selection       { base 22 11 9;    background 255 215 0; emphasis_0 201 36 43;  emphasis_1 62 92 145;  emphasis_2 65 140 91; emphasis_3 122 43 77; }
+        list_unselected      { base 230 211 178; background 22 11 9;  emphasis_0 204 122 61; emphasis_1 98 183 172; emphasis_2 65 140 91; emphasis_3 166 74 107; }
+        frame_selected       { base 255 215 0;  background 22 11 9;   emphasis_0 204 122 61; emphasis_1 98 183 172; emphasis_2 65 140 91; emphasis_3 166 74 107; }
+        frame_highlight      { base 204 122 61; background 22 11 9;   emphasis_0 204 122 61; emphasis_1 98 183 172; emphasis_2 65 140 91; emphasis_3 166 74 107; }
+        exit_code_success    { base 65 140 91;  background 22 11 9;   emphasis_0 204 122 61; emphasis_1 98 183 172; emphasis_2 65 140 91; emphasis_3 166 74 107; }
+        exit_code_error      { base 201 36 43;  background 22 11 9;   emphasis_0 204 122 61; emphasis_1 98 183 172; emphasis_2 65 140 91; emphasis_3 166 74 107; }
+    }
+}
