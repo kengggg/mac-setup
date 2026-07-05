@@ -9,7 +9,7 @@
 #   ./install.sh --mode select    # interactive component checklist
 #   ./install.sh alacritty nvim   # run specific components directly
 #
-# Components: alacritty  zellij  nvim  shell  devtools   (+ apps, macos in full)
+# Components: alacritty  zellij  nvim  shell  devtools  claude   (+ apps, macos in full)
 # One-liner override:  MAC_SETUP_MODE=minimal /bin/bash -c "$(curl -fsSL …/bootstrap.sh)"
 #
 # Safe by design: never runs as root, backs up any existing file before
@@ -201,6 +201,28 @@ EOF
   sed -i '' '/# >>> grok installer >>>/,/# <<< grok installer <<</d' "$REPO/home/zshrc" 2>/dev/null || true
 }
 
+comp_claude() {
+  log "[claude]"
+  brew_install jq                       # statusline needs jq at runtime
+  mkdir -p "$HOME/.claude"
+  link claude/statusline-command.sh "$HOME/.claude/statusline-command.sh"
+  # settings.json is Claude Code's own file — MERGE the statusLine key only,
+  # never overwrite. Idempotent: skip if it already points at our script.
+  local sj="$HOME/.claude/settings.json" cmd="bash ~/.claude/statusline-command.sh" tmp
+  if [ -f "$sj" ]; then
+    if [ "$(jq -r '.statusLine.command // ""' "$sj" 2>/dev/null)" = "$cmd" ]; then
+      log "statusLine already set"
+    else
+      tmp="$(mktemp)"
+      jq --arg c "$cmd" '.statusLine = {type:"command", command:$c}' "$sj" > "$tmp" && mv "$tmp" "$sj"
+      log "merged statusLine into settings.json"
+    fi
+  else
+    jq -n --arg c "$cmd" '{statusLine:{type:"command", command:$c}}' > "$sj"
+    log "created settings.json with statusLine"
+  fi
+}
+
 comp_apps() {
   log "[apps] brew bundle (GUI apps + full package set)"
   brew bundle --file="$REPO/Brewfile"
@@ -217,6 +239,7 @@ run_component() {
     nvim)      comp_nvim ;;
     shell)     comp_shell ;;
     devtools)  comp_devtools ;;
+    claude)    comp_claude ;;
     apps)      comp_apps ;;
     macos)     comp_macos ;;
     *) echo "unknown component: $1" >&2; exit 1 ;;
@@ -241,7 +264,7 @@ choose_mode() {  # sets MODE
 
 choose_components() {  # sets COMPONENTS
   printf '\nSelect components by number (space-separated, e.g. "1 3"):\n'
-  printf '  1) alacritty\n  2) zellij\n  3) nvim\n  4) shell\n  5) devtools\n'
+  printf '  1) alacritty\n  2) zellij\n  3) nvim\n  4) shell\n  5) devtools\n  6) claude\n'
   printf 'Components: '
   local nums n; read -r nums </dev/tty
   COMPONENTS=""
@@ -252,6 +275,7 @@ choose_components() {  # sets COMPONENTS
       3) COMPONENTS="$COMPONENTS nvim" ;;
       4) COMPONENTS="$COMPONENTS shell" ;;
       5) COMPONENTS="$COMPONENTS devtools" ;;
+      6) COMPONENTS="$COMPONENTS claude" ;;
       *) warn "ignoring invalid choice: $n" ;;
     esac
   done
@@ -277,7 +301,7 @@ if [ -n "$ARGS" ]; then
 else
   [ -z "$MODE" ] && choose_mode            # no mode given -> interactive menu
   case "$MODE" in
-    full)                     COMPONENTS="alacritty zellij nvim devtools shell apps macos" ;;
+    full)                     COMPONENTS="alacritty zellij nvim devtools shell claude apps macos" ;;
     minimal|terminal|terminal-only) COMPONENTS="alacritty zellij nvim" ;;
     select|selective)         choose_components ;;
     *) echo "unknown mode: $MODE (use full|minimal|select)" >&2; exit 1 ;;

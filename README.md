@@ -43,6 +43,7 @@ idempotent and backs up existing files to `name.bak-<timestamp>`.
 | `nvim` | neovim, ripgrep, fd, fzf, tree-sitter-cli, node → `~/.config/nvim` + provision |
 | `shell` | oh-my-zsh, p10k, zsh plugins, eza → `.zshrc`, `.p10k.zsh`, `.vimrc` |
 | `devtools` | Miniforge, nvm+Node, Grok → init in `~/.zshrc.local` |
+| `claude` | Claude Code statusline: symlink script + merge `statusLine` into `~/.claude/settings.json` (jq) |
 
 | Mode | Components |
 |------|-----------|
@@ -89,6 +90,7 @@ cd ~/Workspaces/mac-setup && git pull
 | Brewfile apps | `./install.sh apps` |
 | shell, dotfiles, omz plugins | `./install.sh shell` |
 | dev tools | `./install.sh devtools` |
+| Claude Code statusline | `./install.sh claude` |
 
 ## Machine-specific config
 

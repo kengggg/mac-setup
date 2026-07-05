@@ -11,6 +11,7 @@ brew "fd"          # fast file finder (used by telescope)
 brew "ripgrep"     # fast grep (used by telescope live-grep)
 brew "tree-sitter-cli" # compiles nvim treesitter parsers (main branch needs the CLI)
 brew "lazygit"     # git TUI, floated from nvim with Space g g
+brew "jq"          # JSON CLI; required by the Claude Code statusline
 brew "eza"         # modern ls (aliased in .zshrc)
 # (git comes from Xcode Command Line Tools — a prerequisite, installed before this runs)
 brew "gh"          # GitHub CLI (needed to clone this private repo on new machines)
