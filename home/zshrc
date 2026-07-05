@@ -129,3 +129,6 @@ alias vi="nvim"
 # Machine-specific config (conda, nvm, language managers, app PATHs, secrets)
 # lives here and is NOT tracked. Create it per machine; see ~/.zshrc.local.
 [[ -f ~/.zshrc.local ]] && source ~/.zshrc.local
+
+# opencode
+export PATH=/Users/keng/.opencode/bin:$PATH
