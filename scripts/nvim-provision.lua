@@ -28,7 +28,7 @@ pcall(function() require("nvim-treesitter").install(parsers):wait(600000) end)
 -- until every callback has fired.
 local registry = require("mason-registry")
 local want = {
-  "lua-language-server", "pyright", "ruff",
+  "lua-language-server", "pyright", "ruff", "marksman",
   "typescript-language-server", "html-lsp", "css-lsp", "json-lsp",
   "stylua", "prettier",
 }

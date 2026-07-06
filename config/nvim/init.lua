@@ -191,6 +191,7 @@ require("lazy").setup({
         "lua_ls",                          -- Lua
         "pyright", "ruff",                 -- Python (types + lint/format)
         "ts_ls", "html", "cssls", "jsonls",-- JS/TS + web
+        "marksman",                        -- Markdown (follow links with gd)
       }
       require("mason-lspconfig").setup({
         ensure_installed = PROVISION and {} or servers,  -- provision installs these itself
