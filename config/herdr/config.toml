@@ -3,14 +3,13 @@
 
 # Show first-run notification setup on startup.
 # Missing also shows onboarding; set false after you've chosen.
-onboarding = false
+# onboarding = true
 
 [theme]
 # Built-in themes: catppuccin, terminal, tokyo-night, dracula, nord,
 #                  gruvbox, one-dark, solarized, kanagawa, rose-pine,
 #                  vesper
-# "terminal" follows the host palette — i.e. lanna-tone from Ghostty.
-name = "terminal"
+# name = "catppuccin"
 
 # Follow host terminal light/dark appearance and switch Herdr UI themes.
 # Existing manual behavior is unchanged unless this is true.
@@ -20,13 +19,11 @@ name = "terminal"
 
 # Override individual color tokens on top of the base theme.
 # Accepts: hex (#rrggbb), named colors, rgb(r,g,b), or panel_bg = "reset"
-# lanna-tone accents (palette: config/ghostty/themes/lanna-tone).
-[theme.custom]
-accent = "#d8b625"
-green  = "#418c5b"
-blue   = "#3e5c91"
-red    = "#96171a"
-yellow = "#d8b625"
+# [theme.custom]
+# panel_bg = "reset"
+# accent = "#f5c2e7"
+# red = "#ff6188"
+# green = "#a6e3a1"
 
 [terminal]
 # Executable used for new interactive panes.
@@ -195,8 +192,7 @@ yellow = "#d8b625"
 # herdr = show in-app toasts
 # terminal = ask the outer terminal to show a desktop notification
 # system = ask the OS notification service directly
-# (chosen during onboarding 2026-07-07)
-delivery = "system"
+# delivery = "off"
 # delay_seconds = 1
 
 [ui.toast.herdr]
