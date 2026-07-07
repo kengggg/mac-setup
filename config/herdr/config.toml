@@ -25,6 +25,12 @@
 # red = "#ff6188"
 # green = "#a6e3a1"
 
+# Follow macOS appearance, mirroring Ghostty's paired theme
+# (light:TokyoNight Day, dark:lanna-tone — "terminal" inherits the host palette).
+auto_switch = true
+light_name = "tokyo-night-day"
+dark_name = "terminal"
+
 [terminal]
 # Executable used for new interactive panes.
 # Empty means $SHELL, then /bin/sh.
@@ -195,6 +201,7 @@
 # delivery = "off"
 # delay_seconds = 1
 
+delivery = "system"
 [ui.toast.herdr]
 # position = "bottom-right"
 
