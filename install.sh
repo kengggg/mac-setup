@@ -5,11 +5,11 @@
 # Usage:
 #   ./install.sh                  # interactive menu: full / terminal-only / selective
 #   ./install.sh --mode full      # everything
-#   ./install.sh --mode minimal   # alacritty + zellij + nvim only (leaves shell alone)
+#   ./install.sh --mode minimal   # alacritty + ghostty + zellij + nvim only (leaves shell alone)
 #   ./install.sh --mode select    # interactive component checklist
 #   ./install.sh alacritty nvim   # run specific components directly
 #
-# Components: alacritty  zellij  nvim  shell  devtools  claude   (+ apps, macos in full)
+# Components: alacritty  ghostty  zellij  nvim  shell  devtools  claude   (+ apps, macos in full)
 # One-liner override:  MAC_SETUP_MODE=minimal /bin/bash -c "$(curl -fsSL …/bootstrap.sh)"
 #
 # Safe by design: never runs as root, backs up any existing file before
@@ -99,6 +99,23 @@ comp_alacritty() {
   log "[alacritty]"
   brew_install alacritty font-meslo-lg-nerd-font
   link config/alacritty "$HOME/.config/alacritty"
+}
+
+comp_ghostty() {
+  log "[ghostty]"
+  brew_install ghostty font-meslo-lg-nerd-font
+  # Arundina Sans Mono (Thai glyphs) has no brew cask; fetch TTFs from the
+  # canonical TLWG release. Ghostty maps U+0E00-U+0E7F to it (see config).
+  if ! ls "$HOME/Library/Fonts"/ArundinaSansMono* >/dev/null 2>&1; then
+    local tmp; tmp="$(mktemp -d)"
+    curl -fsSL -o "$tmp/arundina.tar.xz" \
+      "https://github.com/tlwg/fonts-arundina/releases/download/v0.4.0/ttf-arundina-0.4.0.tar.xz"
+    tar -xJf "$tmp/arundina.tar.xz" -C "$tmp"
+    cp "$tmp"/ttf-arundina-*/ArundinaSansMono*.ttf "$HOME/Library/Fonts/"
+    rm -rf "$tmp"
+    log "installed Arundina Sans Mono -> ~/Library/Fonts"
+  fi
+  link config/ghostty "$HOME/.config/ghostty"
 }
 
 comp_zellij() {
@@ -235,6 +252,7 @@ comp_macos() {
 run_component() {
   case "$1" in
     alacritty) comp_alacritty ;;
+    ghostty)   comp_ghostty ;;
     zellij)    comp_zellij ;;
     nvim)      comp_nvim ;;
     shell)     comp_shell ;;
@@ -264,7 +282,7 @@ choose_mode() {  # sets MODE
 
 choose_components() {  # sets COMPONENTS
   printf '\nSelect components by number (space-separated, e.g. "1 3"):\n'
-  printf '  1) alacritty\n  2) zellij\n  3) nvim\n  4) shell\n  5) devtools\n  6) claude\n'
+  printf '  1) alacritty\n  2) zellij\n  3) nvim\n  4) shell\n  5) devtools\n  6) claude\n  7) ghostty\n'
   printf 'Components: '
   local nums n; read -r nums </dev/tty
   COMPONENTS=""
@@ -276,6 +294,7 @@ choose_components() {  # sets COMPONENTS
       4) COMPONENTS="$COMPONENTS shell" ;;
       5) COMPONENTS="$COMPONENTS devtools" ;;
       6) COMPONENTS="$COMPONENTS claude" ;;
+      7) COMPONENTS="$COMPONENTS ghostty" ;;
       *) warn "ignoring invalid choice: $n" ;;
     esac
   done
@@ -301,8 +320,8 @@ if [ -n "$ARGS" ]; then
 else
   [ -z "$MODE" ] && choose_mode            # no mode given -> interactive menu
   case "$MODE" in
-    full)                     COMPONENTS="alacritty zellij nvim devtools shell claude apps macos" ;;
-    minimal|terminal|terminal-only) COMPONENTS="alacritty zellij nvim" ;;
+    full)                     COMPONENTS="alacritty ghostty zellij nvim devtools shell claude apps macos" ;;
+    minimal|terminal|terminal-only) COMPONENTS="alacritty ghostty zellij nvim" ;;
     select|selective)         choose_components ;;
     *) echo "unknown mode: $MODE (use full|minimal|select)" >&2; exit 1 ;;
   esac

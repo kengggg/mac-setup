@@ -22,6 +22,7 @@ cask "font-meslo-lg-nerd-font"   # the Nerd Font Alacritty + Powerlevel10k use
 
 # --- Terminal emulator ---
 cask "alacritty"
+cask "ghostty"                   # terminal with per-script font mapping (Thai via Arundina)
 
 # --- GUI apps -----------------------------------------------------------------
 # Add the apps you want a resurrected machine to have. Examples (uncomment/add):

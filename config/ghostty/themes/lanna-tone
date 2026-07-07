@@ -1,0 +1,23 @@
+# lanna-tone for Ghostty
+palette = 0=#160b09
+palette = 1=#96171a
+palette = 2=#418c5b
+palette = 3=#d8b625
+palette = 4=#3e5c91
+palette = 5=#7a2b4d
+palette = 6=#3e8c86
+palette = 7=#d8c7a7
+palette = 8=#6a5546
+palette = 9=#c9242b
+palette = 10=#66b77e
+palette = 11=#ffd700
+palette = 12=#5f7fb8
+palette = 13=#a64a6b
+palette = 14=#62b7ac
+palette = 15=#fff3d6
+background = 160b09
+foreground = e6d3b2
+cursor-color = e6d3b2
+cursor-text = 160b09
+selection-background = 6a5546
+selection-foreground = fff3d6

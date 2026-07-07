@@ -1,0 +1,59 @@
+# Ghostty config — mirrors config/alacritty/alacritty.toml.
+# Hot-reload with Cmd+Shift+, (font-codepoint-map only applies to new windows).
+# Every key doubles as a CLI flag; `ghostty +show-config --default --docs` = full reference.
+# NOTE: Ghostty has no inline comments — keep comments on their own lines.
+
+# --- Fonts ---------------------------------------------------------------
+font-family = MesloLGS NF
+font-size   = 12
+# Thai block renders in Arundina Sans Mono (tlwg/fonts-arundina, installed
+# by install.sh); everything else stays MesloLGS.
+font-codepoint-map = U+0E00-U+0E7F=Arundina Sans Mono
+
+# Color palette lives in themes/. Swap by name (files in config/ghostty/themes/).
+theme = lanna-tone
+
+# --- Shell: auto-launch zellij (login zsh so brew tools are on PATH) ------
+command = /bin/zsh --login -c "exec zellij"
+
+# --- Window ----------------------------------------------------------------
+window-width  = 120
+window-height = 50
+# buttonless chrome, keeps rounded corners
+macos-titlebar-style = hidden
+window-padding-x = 14
+window-padding-y = 12
+# evenly distribute leftover space (Alacritty's dynamic_padding)
+window-padding-balance = true
+background-opacity = 0.95
+background-blur = true
+# Alacritty's option_as_alt = "Both"
+macos-option-as-alt = true
+
+# Scrollback is measured in BYTES (not lines); ~20MB ≈ Alacritty's 50k lines.
+scrollback-limit = 20000000
+
+# --- Cursor (note: blink interval is fixed in Ghostty, no 600ms option) ----
+cursor-style = block
+cursor-style-blink = true
+
+# --- Clipboard --------------------------------------------------------------
+copy-on-select = clipboard
+
+# --- Keybindings -------------------------------------------------------------
+# ESC+CR on Shift+Enter, matching Alacritty (Ghostty also speaks the kitty
+# keyboard protocol, so protocol-aware apps get Shift+Enter natively).
+keybind = shift+enter=text:\x1b\r
+keybind = f11=toggle_fullscreen
+# Ghostty's default alt+left/right shadow zellij pane navigation — pass through.
+keybind = alt+left=unbind
+keybind = alt+right=unbind
+# No Cmd+Shift+M borderless-maximize: toggle_maximize is a no-op on macOS.
+# If you prefer Alacritty's borderless current-Space fill over native
+# fullscreen, uncomment (it changes what toggle_fullscreen does):
+# macos-non-native-fullscreen = true
+
+# SSH note: TERM is xterm-ghostty; on old remote hosts run once:
+#   infocmp -x xterm-ghostty | ssh HOST -- tic -x -
+# or force the Alacritty-era behavior (loses styled underlines etc.):
+# term = xterm-256color
