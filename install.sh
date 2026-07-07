@@ -132,6 +132,10 @@ comp_ghostty() {
     log "installed Arundina Sans Mono -> ~/Library/Fonts"
   fi
   link config/ghostty "$HOME/.config/ghostty"
+  # herdr keeps runtime state (sockets, logs, session.json) in ~/.config/herdr,
+  # so link only the config file, not the directory.
+  mkdir -p "$HOME/.config/herdr"
+  link config/herdr/config.toml "$HOME/.config/herdr/config.toml"
   # Cmd+Shift+M -> Window > Zoom (Ghostty's toggle_maximize is a no-op on
   # macOS; the native Zoom menu item is the Alacritty ToggleMaximized
   # equivalent). Applied at next Ghostty launch.
