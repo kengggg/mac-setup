@@ -19,11 +19,11 @@ MAC_SETUP_MODE=minimal /bin/bash -c "$(curl -fsSL …/bootstrap.sh)"   # alacrit
 
 | Layer | Contents |
 |-------|----------|
-| Brew | `zellij` `neovim` `fzf` `fd` `ripgrep` `eza` `gh` `node`, MesloLGS Nerd Font, Alacritty, Ghostty, + apps in `Brewfile` |
+| Brew | `zellij` `herdr` `neovim` `fzf` `fd` `ripgrep` `eza` `gh` `node`, MesloLGS Nerd Font, Alacritty, Ghostty, + apps in `Brewfile` |
 | Fonts | MesloLGS Nerd Font (Latin/code), Arundina Sans Mono (Thai, from [tlwg/fonts-arundina](https://github.com/tlwg/fonts-arundina)) |
 | Shell | oh-my-zsh, Powerlevel10k, `zsh-autosuggestions`, `zsh-syntax-highlighting` |
 | Dev tools | Miniforge (conda + mamba), nvm + Node LTS, Grok CLI — init written to `~/.zshrc.local` |
-| Configs | Alacritty, Ghostty, Zellij, Neovim, `.zshrc`, `.p10k.zsh`, `.vimrc` |
+| Configs | Alacritty, Ghostty, herdr, Zellij, Neovim, `.zshrc`, `.p10k.zsh`, `.vimrc` |
 
 Configs are symlinked from this repo; commit + push to sync across machines.
 
@@ -40,7 +40,7 @@ idempotent and backs up existing files to `name.bak-<timestamp>`.
 | Component | Installs + links |
 |-----------|------------------|
 | `alacritty` | alacritty + MesloLGS font → `~/.config/alacritty` |
-| `ghostty` | ghostty + MesloLGS + Arundina Sans Mono (Thai) → `~/.config/ghostty`, ⇧⌘M Zoom binding |
+| `ghostty` | ghostty + herdr + MesloLGS + Arundina Sans Mono (Thai) → `~/.config/ghostty` + `~/.config/herdr/config.toml`, ⇧⌘M Zoom binding |
 | `zellij` | zellij → `~/.config/zellij` |
 | `nvim` | neovim, ripgrep, fd, fzf, tree-sitter-cli, node → `~/.config/nvim` + provision |
 | `shell` | oh-my-zsh, p10k, zsh plugins, eza → `.zshrc`, `.p10k.zsh`, `.vimrc` |
@@ -77,7 +77,7 @@ mac-setup/
 ├── bootstrap.sh                 # zero-to-setup entry point
 ├── install.sh                   # idempotent installer
 ├── scripts/nvim-provision.lua   # headless treesitter + Mason
-├── config/                      # -> ~/.config/{alacritty,ghostty,zellij,nvim}
+├── config/                      # -> ~/.config/{alacritty,ghostty,herdr,zellij,nvim}
 └── home/                        # -> ~/.zshrc, ~/.p10k.zsh, ~/.vimrc
 ```
 
@@ -100,7 +100,7 @@ Or, if you know exactly what changed, run just that component:
 
 | What changed | Then run |
 |--------------|----------|
-| configs only — alacritty, ghostty, zellij, init.lua tweaks | nothing |
+| configs only — alacritty, ghostty, herdr, zellij, init.lua tweaks | nothing |
 | a new terminal/program component (e.g. ghostty) | `./install.sh ghostty` |
 | nvim plugins, parsers, LSP servers, nvim deps | `./install.sh nvim` |
 | Brewfile apps | `./install.sh apps` |
@@ -131,3 +131,5 @@ first run on a machine that already had a setup:
 - Symlinks point into this repo; don't move it without rerunning `./install.sh symlinks`
 - The lanna-tone theme's source of truth is [kengggg/lanna-tone-theme](https://github.com/kengggg/lanna-tone-theme). The alacritty + ghostty + zellij copies here are synced with `./scripts/sync-theme.sh` — edit the theme repo, not these copies.
 - Ghostty renders Thai (U+0E00–U+0E7F) in Arundina Sans Mono via `font-codepoint-map`; Alacritty can't do per-script fonts, so both terminals stay installed side by side.
+- Multiplexer trial (2026-07): Ghostty auto-launches **herdr** (agent multiplexer, `ctrl+b` prefix), Alacritty keeps **zellij**. herdr's config is linked file-level (`~/.config/herdr` also holds runtime state); its in-app settings (`ctrl+b s`) write through the symlink, so TUI changes show up as git diffs here.
+- Ghostty + herdr follow macOS appearance (TokyoNight Day in light, lanna-tone in dark); Alacritty/zellij are lanna-tone-only.
