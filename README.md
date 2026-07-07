@@ -133,4 +133,4 @@ first run on a machine that already had a setup:
 - The lanna-tone theme's source of truth is [kengggg/lanna-tone-theme](https://github.com/kengggg/lanna-tone-theme). The alacritty + ghostty + zellij copies here are synced with `./scripts/sync-theme.sh` — edit the theme repo, not these copies.
 - Ghostty renders Thai (U+0E00–U+0E7F) in Arundina Sans Mono via `font-codepoint-map`; Alacritty can't do per-script fonts, so both terminals stay installed side by side.
 - Multiplexer trial (2026-07): Ghostty auto-launches **herdr** (agent multiplexer, `ctrl+b` prefix), Alacritty keeps **zellij**. herdr's config is linked file-level (`~/.config/herdr` also holds runtime state); its in-app settings (`ctrl+b s`) write through the symlink, so TUI changes show up as git diffs here.
-- Ghostty + herdr follow macOS appearance (TokyoNight Day in light, lanna-tone in dark); Alacritty/zellij are lanna-tone-only.
+- Ghostty + herdr follow macOS appearance with stock themes (TokyoNight Day / TokyoNight) — lanna-tone didn't sit well with herdr's UI. Alacritty/zellij remain lanna-tone; Ghostty's lanna-tone copy stays synced in `config/ghostty/themes/` for easy revert.

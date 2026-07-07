@@ -10,10 +10,11 @@ font-size   = 12
 # by install.sh); everything else stays MesloLGS.
 font-codepoint-map = U+0E00-U+0E7F=Arundina Sans Mono
 
-# Paired theme following macOS appearance: TokyoNight Day in light mode,
-# lanna-tone (config/ghostty/themes/) in dark. herdr mirrors this via
-# auto_switch in config/herdr/config.toml.
-theme = light:TokyoNight Day,dark:lanna-tone
+# Paired stock themes following macOS appearance (herdr mirrors via
+# auto_switch in config/herdr/config.toml). lanna-tone didn't sit well
+# with herdr's UI; its copy stays in themes/ for easy revert
+# (dark:lanna-tone), and Alacritty/zellij still use it.
+theme = light:TokyoNight Day,dark:TokyoNight
 
 # --- Shell: auto-launch herdr (trial — Alacritty keeps zellij) -------------
 # Login zsh so brew tools are on PATH. Bare `herdr` launches/attaches THE
