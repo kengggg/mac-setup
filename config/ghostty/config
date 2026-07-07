@@ -31,8 +31,7 @@ window-padding-x = 14
 window-padding-y = 12
 # evenly distribute leftover space (Alacritty's dynamic_padding)
 window-padding-balance = true
-background-opacity = 0.95
-background-blur = true
+# opaque window (was 0.95 + blur; transparency dropped 2026-07)
 # Alacritty's option_as_alt = "Both"
 macos-option-as-alt = true
 
