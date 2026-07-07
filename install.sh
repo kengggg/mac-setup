@@ -116,6 +116,10 @@ comp_ghostty() {
     log "installed Arundina Sans Mono -> ~/Library/Fonts"
   fi
   link config/ghostty "$HOME/.config/ghostty"
+  # Cmd+Shift+M -> Window > Zoom (Ghostty's toggle_maximize is a no-op on
+  # macOS; the native Zoom menu item is the Alacritty ToggleMaximized
+  # equivalent). Applied at next Ghostty launch.
+  defaults write com.mitchellh.ghostty NSUserKeyEquivalents -dict-add "Zoom" '@$m'
 }
 
 comp_zellij() {

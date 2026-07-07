@@ -48,9 +48,11 @@ keybind = f11=toggle_fullscreen
 # Ghostty's default alt+left/right shadow zellij pane navigation — pass through.
 keybind = alt+left=unbind
 keybind = alt+right=unbind
-# No Cmd+Shift+M borderless-maximize: toggle_maximize is a no-op on macOS.
-# If you prefer Alacritty's borderless current-Space fill over native
-# fullscreen, uncomment (it changes what toggle_fullscreen does):
+# Cmd+Shift+M maximize/restore: Ghostty's toggle_maximize is a no-op on
+# macOS, so install.sh binds the native Window > Zoom menu item instead:
+#   defaults write com.mitchellh.ghostty NSUserKeyEquivalents -dict-add "Zoom" '@$m'
+# Alternative if you ever prefer borderless fill over native fullscreen
+# (changes what toggle_fullscreen does):
 # macos-non-native-fullscreen = true
 
 # SSH note: TERM is xterm-ghostty; on old remote hosts run once:
