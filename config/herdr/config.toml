@@ -31,6 +31,12 @@ auto_switch = true
 light_name = "tokyo-night-day"
 dark_name = "terminal"
 
+# lanna-tone's ANSI blue (#3e5c91) is too dark for selected-item highlights
+# (tab bar, settings picker) — dark text on it is unreadable. Use the
+# lanna gold accent instead, which carries dark text fine.
+[theme.custom]
+accent = "#d8b625"
+
 [terminal]
 # Executable used for new interactive panes.
 # Empty means $SHELL, then /bin/sh.
@@ -190,7 +196,8 @@ dark_name = "terminal"
 
 # Accent color for highlights, borders, and navigation UI.
 # Accepts: hex (#89b4fa), named colors (cyan, blue, magenta), or rgb(r,g,b)
-# accent = "cyan"
+# lanna gold — see [theme.custom] note (blue highlight was unreadable)
+accent = "#d8b625"
 
 # Background notification popup delivery
 [ui.toast]
