@@ -13,8 +13,11 @@ font-codepoint-map = U+0E00-U+0E7F=Arundina Sans Mono
 # Color palette lives in themes/. Swap by name (files in config/ghostty/themes/).
 theme = lanna-tone
 
-# --- Shell: auto-launch zellij (login zsh so brew tools are on PATH) ------
-command = /bin/zsh --login -c "exec zellij"
+# --- Shell: auto-launch herdr (trial — Alacritty keeps zellij) -------------
+# Login zsh so brew tools are on PATH. Bare `herdr` launches/attaches THE
+# persistent session (workspaces inside it), unlike zellij's
+# session-per-window model. Revert to zellij by swapping the exec.
+command = /bin/zsh --login -c "exec herdr"
 
 # --- Window ----------------------------------------------------------------
 window-width  = 120

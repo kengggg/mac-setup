@@ -117,7 +117,9 @@ comp_alacritty() {
 
 comp_ghostty() {
   log "[ghostty]"
-  brew_install ghostty font-meslo-lg-nerd-font
+  # herdr: Ghostty's config auto-launches it (trial vs zellij, which stays
+  # the Alacritty default) — must be installed or Ghostty windows die on open.
+  brew_install ghostty font-meslo-lg-nerd-font herdr
   # Arundina Sans Mono (Thai glyphs) has no brew cask; fetch TTFs from the
   # canonical TLWG release. Ghostty maps U+0E00-U+0E7F to it (see config).
   if ! ls "$HOME/Library/Fonts"/ArundinaSansMono* >/dev/null 2>&1; then

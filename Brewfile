@@ -4,7 +4,8 @@
 # tools and GUI apps as your setup grows.
 
 # --- CLI tools (the terminal stack we built) ---
-brew "zellij"      # terminal multiplexer
+brew "zellij"      # terminal multiplexer (Alacritty default)
+brew "herdr"       # agent multiplexer (Ghostty default, trialing vs zellij)
 brew "neovim"      # editor
 brew "fzf"         # fuzzy finder (Ctrl-R / Ctrl-T in zsh, telescope-fzf in nvim)
 brew "fd"          # fast file finder (used by telescope)
