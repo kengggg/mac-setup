@@ -30,6 +30,7 @@ Configs are symlinked from this repo; commit + push to sync across machines.
 ## Cheat sheets
 
 - [Zellij](docs/zellij-cheatsheet.md)
+- [herdr](docs/herdr-cheatsheet.md)
 - [Neovim](docs/nvim-cheatsheet.md)
 
 ## Modes & components
