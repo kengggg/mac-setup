@@ -8,18 +8,21 @@
 #   ./install.sh --mode minimal   # alacritty + ghostty + zellij + nvim only (leaves shell alone)
 #   ./install.sh --mode select    # interactive component checklist
 #   ./install.sh alacritty nvim   # run specific components directly
+#   ./install.sh update           # re-run this machine's recorded selection (after git pull)
 #
 # Components: alacritty  ghostty  zellij  nvim  shell  devtools  claude   (+ apps, macos in full)
 # One-liner override:  MAC_SETUP_MODE=minimal /bin/bash -c "$(curl -fsSL …/bootstrap.sh)"
 #
 # Safe by design: never runs as root, backs up any existing file before
-# linking, and every component is idempotent / re-runnable.
+# linking, and every component is idempotent / re-runnable. Mode runs are
+# recorded to ~/.config/mac-setup/selection so `update` can replay them.
 
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TS="$(date +%Y%m%d%H%M%S)"
 LOCAL="$HOME/.zshrc.local"
+STATE_FILE="$HOME/.config/mac-setup/selection"
 
 log()  { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[!]\033[0m %s\n' "$*"; }
@@ -60,6 +63,17 @@ brew_install() {
       brew install "$pkg"
     fi
   done
+}
+
+# record what this run installed so a later `./install.sh update` can replay
+# it. Modes are recorded by name (so components added to a mode later are
+# picked up); selective runs record their exact component list.
+save_selection() {
+  mkdir -p "$(dirname "$STATE_FILE")"
+  case "$MODE" in
+    full|minimal|terminal|terminal-only) printf 'mode=%s\n' "$MODE" > "$STATE_FILE" ;;
+    select|selective) printf 'components=%s\n' "${COMPONENTS# }" > "$STATE_FILE" ;;
+  esac
 }
 
 # append a block to ~/.zshrc.local once, keyed by a unique marker (block on stdin)
@@ -313,21 +327,38 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --mode)   MODE="${2:-}"; shift 2 ;;
     --mode=*) MODE="${1#*=}"; shift ;;
-    -h|--help) sed -n '2,18p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,19p' "$0"; exit 0 ;;
+    update) MODE="update"; shift ;;
     *) ARGS="$ARGS $1"; shift ;;
   esac
 done
 [ -z "$MODE" ] && MODE="${MAC_SETUP_MODE:-}"
 
+# update: replay this machine's recorded selection (recorded by mode runs)
+if [ "$MODE" = "update" ]; then
+  MODE=""
+  if [ -f "$STATE_FILE" ]; then
+    SEL="$(cat "$STATE_FILE")"
+    case "$SEL" in
+      mode=*)       MODE="${SEL#mode=}" ;;
+      components=*) COMPONENTS="${SEL#components=}" ;;
+      *) warn "unrecognized $STATE_FILE content; choose again" ;;
+    esac
+    log "update: replaying recorded selection (${SEL})"
+  else
+    warn "no recorded selection on this machine yet — choose one; it will be remembered"
+  fi
+fi
+
 if [ -n "$ARGS" ]; then
   COMPONENTS="$ARGS"                       # explicit component names win
-else
+elif [ -z "$COMPONENTS" ]; then            # may already be set by `update` replay
   [ -z "$MODE" ] && choose_mode            # no mode given -> interactive menu
   case "$MODE" in
     full)                     COMPONENTS="alacritty ghostty zellij nvim devtools shell claude apps macos" ;;
     minimal|terminal|terminal-only) COMPONENTS="alacritty ghostty zellij nvim" ;;
     select|selective)         choose_components ;;
-    *) echo "unknown mode: $MODE (use full|minimal|select)" >&2; exit 1 ;;
+    *) echo "unknown mode: $MODE (use full|minimal|select|update)" >&2; exit 1 ;;
   esac
 fi
 
@@ -339,4 +370,5 @@ fi
 log "components:${COMPONENTS}"
 bootstrap_homebrew
 for c in $COMPONENTS; do run_component "$c"; done
+if [ -z "$ARGS" ]; then save_selection; fi   # one-off component runs don't change the record
 log "done."
