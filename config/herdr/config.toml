@@ -1,3 +1,4 @@
+onboarding = false
 # herdr configuration
 # Place this file at ~/.config/herdr/config.toml
 
@@ -193,6 +194,7 @@ dark_name = "tokyo-night"
 # accent = "cyan"
 
 # Background notification popup delivery
+agent_panel_sort = "priority"
 [ui.toast]
 # off = disable pop-up notifications
 # herdr = show in-app toasts
