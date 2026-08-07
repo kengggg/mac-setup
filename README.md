@@ -11,8 +11,11 @@ Machine setup & resurrection for Apple Silicon Macs.
 Installs Command Line Tools, clones to `~/Workspaces/mac-setup`, runs `install.sh`, which prompts for a mode. To pick non-interactively:
 
 ```sh
-MAC_SETUP_MODE=full    /bin/bash -c "$(curl -fsSL …/bootstrap.sh)"   # everything
-MAC_SETUP_MODE=minimal /bin/bash -c "$(curl -fsSL …/bootstrap.sh)"   # alacritty+zellij+nvim only
+MAC_SETUP_MODE=full /bin/bash -c "$(curl -fsSL …/bootstrap.sh)"   # everything
+
+# exact components, recorded for later `update`:
+MAC_SETUP_COMPONENTS="ghostty nvim agents"           /bin/bash -c "$(curl -fsSL …/bootstrap.sh)"
+MAC_SETUP_COMPONENTS="alacritty ghostty zellij nvim" /bin/bash -c "$(curl -fsSL …/bootstrap.sh)"   # terminal stack only
 ```
 
 ## Sets up
@@ -22,7 +25,8 @@ MAC_SETUP_MODE=minimal /bin/bash -c "$(curl -fsSL …/bootstrap.sh)"   # alacrit
 | Brew | `zellij` `herdr` `neovim` `fzf` `fd` `ripgrep` `eza` `gh` `node`, MesloLGS Nerd Font, Alacritty, Ghostty, + apps in `Brewfile` |
 | Fonts | MesloLGS Nerd Font (Latin/code), Arundina Sans Mono (Thai, from [tlwg/fonts-arundina](https://github.com/tlwg/fonts-arundina)) |
 | Shell | oh-my-zsh, Powerlevel10k, `zsh-autosuggestions`, `zsh-syntax-highlighting` |
-| Dev tools | Miniforge (conda + mamba), nvm + Node LTS, Grok CLI — init written to `~/.zshrc.local` |
+| Dev tools | Miniforge (conda + mamba), nvm + Node LTS — init written to `~/.zshrc.local` |
+| Agent CLIs | Claude Code (+ statusline), Codex, Grok |
 | Configs | Alacritty, Ghostty, herdr, Zellij, Neovim, `.zshrc`, `.p10k.zsh`, `.vimrc` |
 
 Configs are symlinked from this repo; commit + push to sync across machines.
@@ -35,8 +39,10 @@ Configs are symlinked from this repo; commit + push to sync across machines.
 
 ## Modes & components
 
-`install.sh` runs **components**; modes are presets of them. Everything is
-idempotent and backs up existing files to `name.bak-<timestamp>`.
+`install.sh` runs **components**; each component is already a group of
+programs (`agents` = Claude Code + Codex + Grok, `apps` = the whole
+Brewfile). Everything is idempotent and backs up existing files to
+`name.bak-<timestamp>`.
 
 | Component | Installs + links |
 |-----------|------------------|
@@ -45,18 +51,18 @@ idempotent and backs up existing files to `name.bak-<timestamp>`.
 | `zellij` | zellij → `~/.config/zellij` |
 | `nvim` | neovim, ripgrep, fd, fzf, tree-sitter-cli, node → `~/.config/nvim` + provision |
 | `shell` | oh-my-zsh, p10k, zsh plugins, eza → `.zshrc`, `.p10k.zsh`, `.vimrc` |
-| `devtools` | Miniforge, nvm+Node, Grok → init in `~/.zshrc.local` |
-| `claude` | Claude Code statusline: symlink script + merge `statusLine` into `~/.claude/settings.json` (jq) |
+| `devtools` | Miniforge, nvm+Node → init in `~/.zshrc.local` |
+| `agents` | Claude Code (native installer) + statusline (`statusLine` jq-merged into `~/.claude/settings.json`), Codex CLI (brew), Grok CLI → init in `~/.zshrc.local` |
 
 | Mode | Components |
 |------|-----------|
-| `full` | everything (+ `apps`, `macos`) |
-| `minimal` | alacritty, ghostty, zellij, nvim — **leaves your shell untouched** |
-| `select` | interactive checklist |
+| `full` | everything |
+| `partial` | interactive checklist — any subset, incl. `apps`/`macos` |
 
 ```sh
-./install.sh                     # interactive menu
-./install.sh --mode full         # or minimal / select
+./install.sh                     # interactive menu (full / partial)
+./install.sh --mode full         # everything
+./install.sh --mode partial      # component checklist
 ./install.sh alacritty nvim      # run specific components
 ./install.sh update              # replay this machine's recorded selection
 ```
@@ -92,9 +98,10 @@ e.g. Ghostty), replay the machine's recorded selection:
 cd ~/Workspaces/mac-setup && git pull && ./install.sh update
 ```
 
-`update` re-resolves the recorded mode at run time, so a component newly
-added to that mode gets installed automatically. Machines set up before the
-record existed are prompted once, then remembered. Everything is idempotent,
+`update` re-resolves a recorded `full` mode at run time, so a component newly
+added to full gets installed automatically; partial runs replay their exact
+component list. Machines set up before the record existed — or with a record
+from the retired `minimal`/`select` modes — are prompted once, then remembered. Everything is idempotent,
 so replaying is safe.
 
 Or, if you know exactly what changed, run just that component:
@@ -107,7 +114,25 @@ Or, if you know exactly what changed, run just that component:
 | Brewfile apps | `./install.sh apps` |
 | shell, dotfiles, omz plugins | `./install.sh shell` |
 | dev tools | `./install.sh devtools` |
-| Claude Code statusline | `./install.sh claude` |
+| agent CLIs or statusline | `./install.sh agents` |
+
+## Second machine, partial setup
+
+To set up a machine with just Ghostty + herdr (with these configs), Neovim,
+and the agent CLIs (Claude Code, Codex, Grok) — without touching its shell,
+prompt, or installing the GUI app list:
+
+```sh
+MAC_SETUP_COMPONENTS="ghostty nvim agents" /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/kengggg/mac-setup/main/bootstrap.sh)"
+```
+
+The selection is recorded, so keeping the machine current later is the same
+as any other machine: `cd ~/Workspaces/mac-setup && git pull && ./install.sh update`.
+Config-only changes arrive with plain `git pull` (symlinks).
+
+Note: the agent CLIs need their own sign-ins on that machine (`claude`,
+`codex`, `grok` each prompt on first run) — accounts and credentials don't
+transfer through this repo.
 
 ## Machine-specific config
 
@@ -128,6 +153,7 @@ first run on a machine that already had a setup:
 ## Notes
 
 - Apple Silicon only; assumes Homebrew at `/opt/homebrew`
+- App Store apps in the `Brewfile` (LINE, Amphetamine, Xcode) install via `mas`, which needs you signed into the App Store first
 - `~/.zprofile` is untracked; `install.sh` writes the brew `shellenv` line
 - Symlinks point into this repo; don't move it without rerunning `./install.sh symlinks`
 - The lanna-tone theme's source of truth is [kengggg/lanna-tone-theme](https://github.com/kengggg/lanna-tone-theme). The alacritty + ghostty + zellij copies here are synced with `./scripts/sync-theme.sh` — edit the theme repo, not these copies.

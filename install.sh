@@ -3,15 +3,16 @@
 # install.sh — component-based machine setup / resurrection.
 #
 # Usage:
-#   ./install.sh                  # interactive menu: full / terminal-only / selective
+#   ./install.sh                  # interactive menu: full / partial
 #   ./install.sh --mode full      # everything
-#   ./install.sh --mode minimal   # alacritty + ghostty + zellij + nvim only (leaves shell alone)
-#   ./install.sh --mode select    # interactive component checklist
+#   ./install.sh --mode partial   # interactive component checklist
 #   ./install.sh alacritty nvim   # run specific components directly
 #   ./install.sh update           # re-run this machine's recorded selection (after git pull)
 #
-# Components: alacritty  ghostty  zellij  nvim  shell  devtools  claude   (+ apps, macos in full)
-# One-liner override:  MAC_SETUP_MODE=minimal /bin/bash -c "$(curl -fsSL …/bootstrap.sh)"
+# Components: alacritty  ghostty  zellij  nvim  shell  devtools  agents  apps  macos
+# One-liner override:  MAC_SETUP_MODE=full /bin/bash -c "$(curl -fsSL …/bootstrap.sh)"
+# Exact components (recorded like a partial run):
+#   MAC_SETUP_COMPONENTS="ghostty nvim agents" /bin/bash -c "$(curl -fsSL …/bootstrap.sh)"
 #
 # Safe by design: never runs as root, backs up any existing file before
 # linking, and every component is idempotent / re-runnable. Mode runs are
@@ -66,13 +67,13 @@ brew_install() {
 }
 
 # record what this run installed so a later `./install.sh update` can replay
-# it. Modes are recorded by name (so components added to a mode later are
-# picked up); selective runs record their exact component list.
+# it. Full runs are recorded by mode name (so components added to full later
+# are picked up); partial runs record their exact component list.
 save_selection() {
   mkdir -p "$(dirname "$STATE_FILE")"
   case "$MODE" in
-    full|minimal|terminal|terminal-only) printf 'mode=%s\n' "$MODE" > "$STATE_FILE" ;;
-    select|selective) printf 'components=%s\n' "${COMPONENTS# }" > "$STATE_FILE" ;;
+    full)    printf 'mode=%s\n' "$MODE" > "$STATE_FILE" ;;
+    partial) printf 'components=%s\n' "${COMPONENTS# }" > "$STATE_FILE" ;;
   esac
 }
 
@@ -223,6 +224,23 @@ EOF
     log "installing Node LTS via nvm"; nvm install --lts
   fi
 
+}
+
+# Agent CLIs: Claude Code (+ statusline), Codex, Grok. Self-contained so a
+# second machine can get them without devtools' conda/nvm.
+comp_agents() {
+  log "[agents]"
+  brew_install jq codex                 # jq: statusline runtime dep; codex: Codex CLI
+
+  # Claude Code — native installer puts the binary in ~/.local/bin, which the
+  # tracked .zshrc already has on PATH.
+  if command -v claude >/dev/null 2>&1 || [ -x "$HOME/.local/bin/claude" ]; then
+    log "claude already installed"
+  else
+    log "installing Claude Code"
+    curl -fsSL https://claude.ai/install.sh | bash
+  fi
+
   # Grok CLI
   if [ ! -x "$HOME/.grok/bin/grok" ]; then
     log "installing grok CLI"
@@ -240,11 +258,8 @@ EOF
   # grok's installer may append its block to ~/.zshrc (our symlink); strip it
   # from the tracked repo file so the canonical block stays only in .zshrc.local.
   sed -i '' '/# >>> grok installer >>>/,/# <<< grok installer <<</d' "$REPO/home/zshrc" 2>/dev/null || true
-}
 
-comp_claude() {
-  log "[claude]"
-  brew_install jq                       # statusline needs jq at runtime
+  # Claude Code statusline
   mkdir -p "$HOME/.claude"
   link claude/statusline-command.sh "$HOME/.claude/statusline-command.sh"
   # settings.json is Claude Code's own file — MERGE the statusLine key only,
@@ -281,7 +296,8 @@ run_component() {
     nvim)      comp_nvim ;;
     shell)     comp_shell ;;
     devtools)  comp_devtools ;;
-    claude)    comp_claude ;;
+    agents)    comp_agents ;;
+    claude)    warn "'claude' is now part of the 'agents' component; running agents"; comp_agents ;;
     apps)      comp_apps ;;
     macos)     comp_macos ;;
     *) echo "unknown component: $1" >&2; exit 1 ;;
@@ -291,22 +307,20 @@ run_component() {
 # --- mode / component selection ----------------------------------------------
 choose_mode() {  # sets MODE
   printf '\nSelect install mode:\n'
-  printf '  1) full          — alacritty, zellij, nvim, shell, dev tools, apps\n'
-  printf '  2) terminal-only — alacritty, zellij, nvim (leaves your shell alone)\n'
-  printf '  3) selective     — choose components\n'
-  printf 'Choice [1-3]: '
+  printf '  1) full    — everything: terminals, nvim, shell, dev tools, agent CLIs, apps\n'
+  printf '  2) partial — choose components\n'
+  printf 'Choice [1-2]: '
   local c; read -r c </dev/tty
   case "$c" in
     1) MODE=full ;;
-    2) MODE=minimal ;;
-    3) MODE=select ;;
+    2) MODE=partial ;;
     *) echo "invalid choice: $c" >&2; exit 1 ;;
   esac
 }
 
 choose_components() {  # sets COMPONENTS
   printf '\nSelect components by number (space-separated, e.g. "1 3"):\n'
-  printf '  1) alacritty\n  2) zellij\n  3) nvim\n  4) shell\n  5) devtools\n  6) claude\n  7) ghostty\n'
+  printf '  1) alacritty\n  2) zellij\n  3) nvim\n  4) shell\n  5) devtools\n  6) agents\n  7) ghostty\n  8) apps\n  9) macos\n'
   printf 'Components: '
   local nums n; read -r nums </dev/tty
   COMPONENTS=""
@@ -317,8 +331,10 @@ choose_components() {  # sets COMPONENTS
       3) COMPONENTS="$COMPONENTS nvim" ;;
       4) COMPONENTS="$COMPONENTS shell" ;;
       5) COMPONENTS="$COMPONENTS devtools" ;;
-      6) COMPONENTS="$COMPONENTS claude" ;;
+      6) COMPONENTS="$COMPONENTS agents" ;;
       7) COMPONENTS="$COMPONENTS ghostty" ;;
+      8) COMPONENTS="$COMPONENTS apps" ;;
+      9) COMPONENTS="$COMPONENTS macos" ;;
       *) warn "ignoring invalid choice: $n" ;;
     esac
   done
@@ -346,11 +362,12 @@ if [ "$MODE" = "update" ]; then
   if [ -f "$STATE_FILE" ]; then
     SEL="$(cat "$STATE_FILE")"
     case "$SEL" in
-      mode=*)       MODE="${SEL#mode=}" ;;
+      mode=full)    MODE=full ;;
+      mode=*)       warn "recorded mode '${SEL#mode=}' is obsolete (modes are now full/partial) — choose again" ;;
       components=*) COMPONENTS="${SEL#components=}" ;;
       *) warn "unrecognized $STATE_FILE content; choose again" ;;
     esac
-    log "update: replaying recorded selection (${SEL})"
+    if [ -n "$MODE$COMPONENTS" ]; then log "update: replaying recorded selection (${SEL})"; fi
   else
     warn "no recorded selection on this machine yet — choose one; it will be remembered"
   fi
@@ -359,13 +376,17 @@ fi
 if [ -n "$ARGS" ]; then
   COMPONENTS="$ARGS"                       # explicit component names win
 elif [ -z "$COMPONENTS" ]; then            # may already be set by `update` replay
-  [ -z "$MODE" ] && choose_mode            # no mode given -> interactive menu
-  case "$MODE" in
-    full)                     COMPONENTS="alacritty ghostty zellij nvim devtools shell claude apps macos" ;;
-    minimal|terminal|terminal-only) COMPONENTS="alacritty ghostty zellij nvim" ;;
-    select|selective)         choose_components ;;
-    *) echo "unknown mode: $MODE (use full|minimal|select|update)" >&2; exit 1 ;;
-  esac
+  if [ -z "$MODE" ] && [ -n "${MAC_SETUP_COMPONENTS:-}" ]; then
+    MODE=partial                           # recorded like a partial run
+    COMPONENTS=" $MAC_SETUP_COMPONENTS"
+  else
+    [ -z "$MODE" ] && choose_mode          # no mode given -> interactive menu
+    case "$MODE" in
+      full)    COMPONENTS="alacritty ghostty zellij nvim devtools shell agents apps macos" ;;
+      partial) choose_components ;;
+      *) echo "unknown mode: $MODE (use full|partial|update)" >&2; exit 1 ;;
+    esac
+  fi
 fi
 
 if [ -z "${COMPONENTS// /}" ]; then
