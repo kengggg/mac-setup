@@ -25,7 +25,7 @@ The repo is public, so this works with no GitHub auth. Modes are `full` (everyth
 ./scripts/sync-theme.sh          # pull lanna-tone theme copies from the canonical theme repo
 ```
 
-Components: `alacritty` `ghostty` `zellij` `nvim` `shell` `devtools` `agents` `apps` `macos` (`claude` is a deprecated alias for `agents`). `agents` = Claude Code (native installer → `~/.local/bin`) + statusline, Codex CLI (brew cask), Grok CLI — deliberately separate from `devtools` (conda+nvm) so a second machine can take one without the other. Runs are recorded to `~/.config/mac-setup/selection` (untracked, per-machine): full by mode name (re-resolved at `update` time, so components later added to full get picked up), partial by exact component list. Records from the retired `minimal`/`select` modes re-prompt once (clean break, chosen deliberately).
+Components: `alacritty` `ghostty` `nvim` `shell` `devtools` `agents` `apps` `macos` (`claude` is a deprecated alias for `agents`; `zellij` was removed 2026-08 and warns-then-skips for old machine records). `agents` = Claude Code (native installer → `~/.local/bin`) + statusline, Codex CLI (brew cask), Grok CLI — deliberately separate from `devtools` (conda+nvm) so a second machine can take one without the other. Runs are recorded to `~/.config/mac-setup/selection` (untracked, per-machine): full by mode name (re-resolved at `update` time, so components later added to full get picked up), partial by exact component list. Records from the retired `minimal`/`select` modes re-prompt once (clean break, chosen deliberately).
 
 ## Architecture
 
@@ -46,8 +46,8 @@ Core mechanics in `install.sh` that everything relies on:
 - **grok's installer appends to `~/.zshrc`** (which is our symlinked tracked file); `comp_agents` strips that block back out of the repo copy so the canonical init lives only in `~/.zshrc.local`. Watch for similar installer pollution of tracked dotfiles — it shows up as an uncommitted diff on `home/zshrc`.
 - **Agent configs stay per-machine.** `~/.codex/config.toml`, Claude/Codex/Grok credentials, and sign-ins are deliberately NOT tracked — the repo is public. Only the statusline script and `statusLine` settings key are shared.
 - **App Store apps** (LINE, Amphetamine, Xcode) install via `mas` entries in the Brewfile and need an App Store sign-in; brew casks cover everything else (OrbStack replaces Docker Desktop — do not add Docker Desktop).
-- **Ghostty vs Alacritty coexist deliberately**: Ghostty maps Thai (U+0E00–U+0E7F) to Arundina Sans Mono via `font-codepoint-map`; Alacritty can't do per-script fonts. Ghostty auto-launches herdr; Alacritty keeps zellij (multiplexer trial, 2026-07). Ghostty/herdr use stock TokyoNight (follows macOS appearance); Alacritty/zellij stay lanna-tone.
-- Modes are exactly `full` and `partial`; the old `minimal`/`select` names were removed with no aliases. The old terminal-only preset lives on only as a documented `MAC_SETUP_COMPONENTS="alacritty ghostty zellij nvim"` example.
+- **Ghostty vs Alacritty coexist deliberately**: Ghostty maps Thai (U+0E00–U+0E7F) to Arundina Sans Mono via `font-codepoint-map`; Alacritty can't do per-script fonts. Ghostty auto-launches herdr (winner of the 2026-07 multiplexer trial; zellij removed 2026-08); Alacritty opens a plain login shell. Ghostty/herdr use stock TokyoNight (follows macOS appearance); Alacritty stays lanna-tone.
+- Modes are exactly `full` and `partial`; the old `minimal`/`select` names were removed with no aliases. The old terminal-only preset lives on only as a documented `MAC_SETUP_COMPONENTS="alacritty ghostty nvim"` example.
 
 ## Adding things
 

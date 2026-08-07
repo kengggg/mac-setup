@@ -15,25 +15,24 @@ MAC_SETUP_MODE=full /bin/bash -c "$(curl -fsSL …/bootstrap.sh)"   # everything
 
 # exact components, recorded for later `update`:
 MAC_SETUP_COMPONENTS="ghostty nvim agents"           /bin/bash -c "$(curl -fsSL …/bootstrap.sh)"
-MAC_SETUP_COMPONENTS="alacritty ghostty zellij nvim" /bin/bash -c "$(curl -fsSL …/bootstrap.sh)"   # terminal stack only
+MAC_SETUP_COMPONENTS="alacritty ghostty nvim"        /bin/bash -c "$(curl -fsSL …/bootstrap.sh)"   # terminal stack only
 ```
 
 ## Sets up
 
 | Layer | Contents |
 |-------|----------|
-| Brew | `zellij` `herdr` `neovim` `fzf` `fd` `ripgrep` `eza` `gh` `node`, MesloLGS Nerd Font, Alacritty, Ghostty, + apps in `Brewfile` |
+| Brew | `herdr` `neovim` `fzf` `fd` `ripgrep` `eza` `gh` `node`, MesloLGS Nerd Font, Alacritty, Ghostty, + apps in `Brewfile` |
 | Fonts | MesloLGS Nerd Font (Latin/code), Arundina Sans Mono (Thai, from [tlwg/fonts-arundina](https://github.com/tlwg/fonts-arundina)) |
 | Shell | oh-my-zsh, Powerlevel10k, `zsh-autosuggestions`, `zsh-syntax-highlighting` |
 | Dev tools | Miniforge (conda + mamba), nvm + Node LTS — init written to `~/.zshrc.local` |
 | Agent CLIs | Claude Code (+ statusline), Codex, Grok |
-| Configs | Alacritty, Ghostty, herdr, Zellij, Neovim, `.zshrc`, `.p10k.zsh`, `.vimrc` |
+| Configs | Alacritty, Ghostty, herdr, Neovim, `.zshrc`, `.p10k.zsh`, `.vimrc` |
 
 Configs are symlinked from this repo; commit + push to sync across machines.
 
 ## Cheat sheets
 
-- [Zellij](docs/zellij-cheatsheet.md)
 - [herdr](docs/herdr-cheatsheet.md)
 - [Neovim](docs/nvim-cheatsheet.md)
 
@@ -48,7 +47,6 @@ Brewfile). Everything is idempotent and backs up existing files to
 |-----------|------------------|
 | `alacritty` | alacritty + MesloLGS font → `~/.config/alacritty` |
 | `ghostty` | ghostty + herdr + MesloLGS + Arundina Sans Mono (Thai) → `~/.config/ghostty` + `~/.config/herdr/config.toml`, ⇧⌘M Zoom binding |
-| `zellij` | zellij → `~/.config/zellij` |
 | `nvim` | neovim, ripgrep, fd, fzf, tree-sitter-cli, node → `~/.config/nvim` + provision |
 | `shell` | oh-my-zsh, p10k, zsh plugins, eza → `.zshrc`, `.p10k.zsh`, `.vimrc` |
 | `devtools` | Miniforge, nvm+Node → init in `~/.zshrc.local` |
@@ -84,7 +82,7 @@ mac-setup/
 ├── bootstrap.sh                 # zero-to-setup entry point
 ├── install.sh                   # idempotent installer
 ├── scripts/nvim-provision.lua   # headless treesitter + Mason
-├── config/                      # -> ~/.config/{alacritty,ghostty,herdr,zellij,nvim}
+├── config/                      # -> ~/.config/{alacritty,ghostty,herdr,nvim}
 └── home/                        # -> ~/.zshrc, ~/.p10k.zsh, ~/.vimrc
 ```
 
@@ -108,7 +106,7 @@ Or, if you know exactly what changed, run just that component:
 
 | What changed | Then run |
 |--------------|----------|
-| configs only — alacritty, ghostty, herdr, zellij, init.lua tweaks | nothing |
+| configs only — alacritty, ghostty, herdr, init.lua tweaks | nothing |
 | a new terminal/program component (e.g. ghostty) | `./install.sh ghostty` |
 | nvim plugins, parsers, LSP servers, nvim deps | `./install.sh nvim` |
 | Brewfile apps | `./install.sh apps` |
@@ -156,7 +154,7 @@ first run on a machine that already had a setup:
 - App Store apps in the `Brewfile` (LINE, Amphetamine, Xcode) install via `mas`, which needs you signed into the App Store first
 - `~/.zprofile` is untracked; `install.sh` writes the brew `shellenv` line
 - Symlinks point into this repo; don't move it without rerunning `./install.sh symlinks`
-- The lanna-tone theme's source of truth is [kengggg/lanna-tone-theme](https://github.com/kengggg/lanna-tone-theme). The alacritty + ghostty + zellij copies here are synced with `./scripts/sync-theme.sh` — edit the theme repo, not these copies.
+- The lanna-tone theme's source of truth is [kengggg/lanna-tone-theme](https://github.com/kengggg/lanna-tone-theme). The alacritty + ghostty copies here are synced with `./scripts/sync-theme.sh` — edit the theme repo, not these copies.
 - Ghostty renders Thai (U+0E00–U+0E7F) in Arundina Sans Mono via `font-codepoint-map`; Alacritty can't do per-script fonts, so both terminals stay installed side by side.
-- Multiplexer trial (2026-07): Ghostty auto-launches **herdr** (agent multiplexer, `ctrl+b` prefix), Alacritty keeps **zellij**. herdr's config is linked file-level (`~/.config/herdr` also holds runtime state); its in-app settings (`ctrl+b s`) write through the symlink, so TUI changes show up as git diffs here.
-- Ghostty + herdr follow macOS appearance with stock themes (TokyoNight Day / TokyoNight) — lanna-tone didn't sit well with herdr's UI. Alacritty/zellij remain lanna-tone; Ghostty's lanna-tone copy stays synced in `config/ghostty/themes/` for easy revert.
+- Multiplexer: Ghostty auto-launches **herdr** (agent multiplexer, `ctrl+b` prefix) — winner of the 2026-07 trial vs zellij; zellij was removed 2026-08 and Alacritty now opens a plain login shell. herdr's config is linked file-level (`~/.config/herdr` also holds runtime state); its in-app settings (`ctrl+b s`) write through the symlink, so TUI changes show up as git diffs here.
+- Ghostty + herdr follow macOS appearance with stock themes (TokyoNight Day / TokyoNight) — lanna-tone didn't sit well with herdr's UI. Alacritty remains lanna-tone; Ghostty's lanna-tone copy stays synced in `config/ghostty/themes/` for easy revert.

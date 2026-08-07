@@ -34,11 +34,11 @@ Inside a picker: `Ctrl j` / `Ctrl k` move, `Enter` open, `Ctrl v` open in vsplit
 | Key | Action |
 |-----|--------|
 | `Shift l` / `Shift h` | next / previous buffer |
-| `Ctrl w` then `h/j/k/l` | move between splits (reliable inside zellij) |
+| `Ctrl w` then `h/j/k/l` | move between splits (reliable inside a multiplexer) |
 | `Ctrl w w` | cycle to next split |
 | `:vsplit` / `:split` | split vertical / horizontal |
 
-> Note: bare `Ctrl h/j/k/l` also move between splits, but **`Ctrl h` is intercepted by zellij** (move mode), so prefer `Ctrl w` or `Space E` to reach the explorer.
+> Note: bare `Ctrl h/j/k/l` also move between splits, but a multiplexer may intercept `Ctrl h`, so prefer `Ctrl w` or `Space E` to reach the explorer.
 
 ## Code — LSP
 
