@@ -7,23 +7,6 @@ spaces/tabs in the sidebar, right-click for menus, drag-select to copy.
 **Model:** session → **spaces** (workspaces, one per repo/task) → tabs → panes.
 Everything keeps running when you detach or close the window.
 
-## Coming from zellij
-
-| zellij habit | herdr equivalent |
-|--------------|------------------|
-| `Ctrl p` `n` / `r` / `d` (new pane) | `Ctrl b` `v` (right) / `-` (down) |
-| `Ctrl p` `hjkl` (focus pane) | `Ctrl b` `h/j/k/l` |
-| `Ctrl p` `f` (fullscreen) | `Ctrl b` `z` (zoom) |
-| `Ctrl p` `x` (close pane) | `Ctrl b` `x` |
-| `Ctrl p` `w` (floating panes) | — no floating panes in herdr |
-| `Ctrl t` `n` (new tab) | `Ctrl b` `c` |
-| `Ctrl t` `1..9` | `Ctrl b` `1..9` |
-| `Ctrl t` `x` (close tab) | `Ctrl b` `Shift x` |
-| `Ctrl n` (resize mode) | `Ctrl b` `r` |
-| `Ctrl s` (scroll/search) | `Ctrl b` `[` (copy mode) or `e` (edit scrollback) |
-| `Ctrl o` (session) | `Ctrl b` `q` detach · `herdr` reattach |
-| `Alt hjkl` (quick nav) | opt-in direct chords, see bottom |
-
 ## Session
 
 | Key | Action |
@@ -96,7 +79,7 @@ Claude Code is auto-detected — no setup needed.
 Useful from any shell: `herdr agent list`, `herdr agent wait <n> --status idle`,
 `herdr worktree create --branch <name>`.
 
-## Optional: zellij-style quick nav (no prefix)
+## Optional: direct chords (no prefix)
 
 Direct chords aren't on by default; add to `config/herdr/config.toml` `[keys]`:
 

@@ -378,7 +378,7 @@ comp_macos() {
 run_component() {
   case "$1" in
     ghostty)   comp_ghostty ;;
-    alacritty|zellij) warn "the $1 component was removed (2026-08); skipping" ;;
+    alacritty|zellij) warn "the $1 component was removed; skipping" ;;
     nvim)      comp_nvim ;;
     shell)     comp_shell ;;
     devtools)  comp_devtools ;;

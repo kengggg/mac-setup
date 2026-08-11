@@ -1,5 +1,4 @@
-# Ghostty config — the terminal of this setup (settings inherited from the
-# retired Alacritty config, 2026-08).
+# Ghostty config — the terminal of this setup.
 # Hot-reload with Cmd+Shift+, (font-codepoint-map only applies to new windows).
 # Every key doubles as a CLI flag; `ghostty +show-config --default --docs` = full reference.
 # NOTE: Ghostty has no inline comments — keep comments on their own lines.
@@ -29,13 +28,12 @@ window-height = 50
 macos-titlebar-style = hidden
 window-padding-x = 14
 window-padding-y = 12
-# evenly distribute leftover space (Alacritty's dynamic_padding)
+# evenly distribute leftover space
 window-padding-balance = true
-# opaque window (was 0.95 + blur; transparency dropped 2026-07)
-# Alacritty's option_as_alt = "Both"
+# opaque window; make Option work as Alt for terminal apps
 macos-option-as-alt = true
 
-# Scrollback is measured in BYTES (not lines); ~20MB ≈ Alacritty's 50k lines.
+# Scrollback is measured in BYTES (not lines); ~20MB ≈ 50k lines.
 scrollback-limit = 20000000
 
 # --- Cursor (note: blink interval is fixed in Ghostty, no 600ms option) ----
@@ -46,8 +44,8 @@ cursor-style-blink = true
 copy-on-select = clipboard
 
 # --- Keybindings -------------------------------------------------------------
-# ESC+CR on Shift+Enter, matching Alacritty (Ghostty also speaks the kitty
-# keyboard protocol, so protocol-aware apps get Shift+Enter natively).
+# ESC+CR on Shift+Enter (Ghostty also speaks the kitty keyboard protocol,
+# so protocol-aware apps get Shift+Enter natively).
 keybind = shift+enter=text:\x1b\r
 keybind = f11=toggle_fullscreen
 # Pass alt+left/right through to terminal apps instead of Ghostty's defaults.
@@ -62,5 +60,5 @@ keybind = alt+right=unbind
 
 # SSH note: TERM is xterm-ghostty; on old remote hosts run once:
 #   infocmp -x xterm-ghostty | ssh HOST -- tic -x -
-# or force the Alacritty-era behavior (loses styled underlines etc.):
+# or fall back to a generic TERM (loses styled underlines etc.):
 # term = xterm-256color
