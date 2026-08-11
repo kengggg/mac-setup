@@ -171,6 +171,20 @@ comp_shell() {
   link home/zshrc    "$HOME/.zshrc"
   link home/p10k.zsh "$HOME/.p10k.zsh"
   link home/vimrc    "$HOME/.vimrc"
+
+  # Machines with a two-account history can leave completion paths owned by
+  # another user or group-writable; oh-my-zsh then prints a compaudit lecture
+  # on EVERY shell start (which in turn trips p10k's instant-prompt warning).
+  # Detect it here and say exactly how to fix — ownership needs sudo, which
+  # this installer never uses itself.
+  local insecure
+  insecure="$(zsh -fc 'autoload -Uz compaudit && compaudit' 2>/dev/null || true)"
+  if [ -n "$insecure" ]; then
+    warn "zsh flags insecure completion paths — oh-my-zsh will warn on every new shell:"
+    printf '%s\n' "$insecure" >&2
+    warn "fix once with:"
+    warn '  compaudit | xargs sudo chown $USER && compaudit | xargs chmod g-w,o-w'
+  fi
 }
 
 comp_devtools() {
