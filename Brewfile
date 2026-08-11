@@ -60,7 +60,11 @@ cask "ollama-app", args: { adopt: true }
 cask "microsoft-office", args: { adopt: true }   # Word / Excel / PowerPoint
 cask "cleanmymac", args: { adopt: true }
 
-# --- App Store apps (via mas; requires being signed into the App Store) -------
+# --- App Store apps ------------------------------------------------------------
+# Installed by install.sh's own App Store loop (not brew bundle): interactive
+# runs attempt them (macOS may ask to sign in — just do it there); unattended
+# runs skip them with a warning.
 mas "LINE",        id: 539883307
 mas "Amphetamine", id: 937984704
-mas "Xcode",       id: 497799835
+# Xcode (~12GB) is deliberately not part of every machine; when one needs it:
+#   mas install 497799835
