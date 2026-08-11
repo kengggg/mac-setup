@@ -1,6 +1,6 @@
 " ~/.vimrc — sensible, productive defaults
 " Plain vim (no plugins required). Colors intentionally inherit the terminal
-" theme: we do NOT set termguicolors, so syntax uses Alacritty's ANSI palette
+" theme: we do NOT set termguicolors, so syntax uses the terminal's ANSI palette
 " and stays in sync with whatever theme you're running.
 
 " --- core behavior ---

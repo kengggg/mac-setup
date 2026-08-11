@@ -19,10 +19,9 @@ brew "node"        # runtime for some LSP servers (pyright, ts_ls)
 brew "mas"         # Mac App Store CLI — installs the `mas` entries below
 
 # --- Fonts ---
-cask "font-meslo-lg-nerd-font"   # the Nerd Font Alacritty + Powerlevel10k use
+cask "font-meslo-lg-nerd-font"   # the Nerd Font Ghostty + Powerlevel10k use
 
 # --- Terminal emulator ---
-cask "alacritty"
 cask "ghostty"                   # terminal with per-script font mapping (Thai via Arundina)
 
 # --- GUI apps -----------------------------------------------------------------

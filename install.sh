@@ -6,10 +6,10 @@
 #   ./install.sh                  # interactive menu: full / partial
 #   ./install.sh --mode full      # everything
 #   ./install.sh --mode partial   # interactive component checklist
-#   ./install.sh alacritty nvim   # run specific components directly
+#   ./install.sh ghostty nvim     # run specific components directly
 #   ./install.sh update           # re-run this machine's recorded selection (after git pull)
 #
-# Components: alacritty  ghostty  nvim  shell  devtools  agents  apps  macos
+# Components: ghostty  nvim  shell  devtools  agents  apps  macos
 # One-liner override:  MAC_SETUP_MODE=full /bin/bash -c "$(curl -fsSL …/bootstrap.sh)"
 # Exact components (recorded like a partial run):
 #   MAC_SETUP_COMPONENTS="ghostty nvim agents" /bin/bash -c "$(curl -fsSL …/bootstrap.sh)"
@@ -110,12 +110,6 @@ bootstrap_homebrew() {
 }
 
 # --- components ---------------------------------------------------------------
-comp_alacritty() {
-  log "[alacritty]"
-  brew_install alacritty font-meslo-lg-nerd-font
-  link config/alacritty "$HOME/.config/alacritty"
-}
-
 comp_ghostty() {
   log "[ghostty]"
   # herdr: Ghostty's config auto-launches it — must be installed or Ghostty
@@ -284,9 +278,8 @@ comp_macos() {
 
 run_component() {
   case "$1" in
-    alacritty) comp_alacritty ;;
     ghostty)   comp_ghostty ;;
-    zellij)    warn "the zellij component was removed (2026-08); skipping" ;;
+    alacritty|zellij) warn "the $1 component was removed (2026-08); skipping" ;;
     nvim)      comp_nvim ;;
     shell)     comp_shell ;;
     devtools)  comp_devtools ;;
@@ -301,7 +294,7 @@ run_component() {
 # --- mode / component selection ----------------------------------------------
 choose_mode() {  # sets MODE
   printf '\nSelect install mode:\n'
-  printf '  1) full    — everything: terminals, nvim, shell, dev tools, agent CLIs, apps\n'
+  printf '  1) full    — everything: ghostty+herdr, nvim, shell, dev tools, agent CLIs, apps\n'
   printf '  2) partial — choose components\n'
   printf 'Choice [1-2]: '
   local c; read -r c </dev/tty
@@ -314,20 +307,19 @@ choose_mode() {  # sets MODE
 
 choose_components() {  # sets COMPONENTS
   printf '\nSelect components by number (space-separated, e.g. "1 3"):\n'
-  printf '  1) ghostty\n  2) alacritty\n  3) nvim\n  4) shell\n  5) devtools\n  6) agents\n  7) apps\n  8) macos\n'
+  printf '  1) ghostty\n  2) nvim\n  3) shell\n  4) devtools\n  5) agents\n  6) apps\n  7) macos\n'
   printf 'Components: '
   local nums n; read -r nums </dev/tty
   COMPONENTS=""
   for n in $nums; do
     case "$n" in
       1) COMPONENTS="$COMPONENTS ghostty" ;;
-      2) COMPONENTS="$COMPONENTS alacritty" ;;
-      3) COMPONENTS="$COMPONENTS nvim" ;;
-      4) COMPONENTS="$COMPONENTS shell" ;;
-      5) COMPONENTS="$COMPONENTS devtools" ;;
-      6) COMPONENTS="$COMPONENTS agents" ;;
-      7) COMPONENTS="$COMPONENTS apps" ;;
-      8) COMPONENTS="$COMPONENTS macos" ;;
+      2) COMPONENTS="$COMPONENTS nvim" ;;
+      3) COMPONENTS="$COMPONENTS shell" ;;
+      4) COMPONENTS="$COMPONENTS devtools" ;;
+      5) COMPONENTS="$COMPONENTS agents" ;;
+      6) COMPONENTS="$COMPONENTS apps" ;;
+      7) COMPONENTS="$COMPONENTS macos" ;;
       *) warn "ignoring invalid choice: $n" ;;
     esac
   done
@@ -375,7 +367,7 @@ elif [ -z "$COMPONENTS" ]; then            # may already be set by `update` repl
   else
     [ -z "$MODE" ] && choose_mode          # no mode given -> interactive menu
     case "$MODE" in
-      full)    COMPONENTS="alacritty ghostty nvim devtools shell agents apps macos" ;;
+      full)    COMPONENTS="ghostty nvim devtools shell agents apps macos" ;;
       partial) choose_components ;;
       *) echo "unknown mode: $MODE (use full|partial|update)" >&2; exit 1 ;;
     esac

@@ -17,8 +17,6 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 log() { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
 
 log "syncing lanna-tone from kengggg/lanna-tone-theme"
-curl -fsSL "$RAW/alacritty.toml" -o "$REPO/config/alacritty/themes/lanna-tone.toml"
-log "updated config/alacritty/themes/lanna-tone.toml"
 mkdir -p "$REPO/config/ghostty/themes"
 curl -fsSL "$RAW/ghostty.config" -o "$REPO/config/ghostty/themes/lanna-tone"
 log "updated config/ghostty/themes/lanna-tone"
