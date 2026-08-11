@@ -281,6 +281,13 @@ EOF
 
 comp_apps() {
   log "[apps] brew bundle (GUI apps + full package set)"
+  # codexbar once lived in steipete/tap; it's now in homebrew/cask. A stale
+  # tap shadows the official cask and trips brew's untrusted-tap guard in
+  # non-interactive runs, so drop the tap first (nothing else is used from it).
+  if brew tap 2>/dev/null | grep -q '^steipete/tap$'; then
+    log "removing stale steipete/tap (codexbar now lives in homebrew/cask)"
+    brew untap --force steipete/tap
+  fi
   brew bundle --file="$REPO/Brewfile"
 }
 
