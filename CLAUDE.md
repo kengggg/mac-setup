@@ -12,7 +12,7 @@ Machine setup & resurrection for Apple Silicon Macs — a component-based instal
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/kengggg/mac-setup/main/bootstrap.sh)"
 ```
 
-The repo is public, so this works with no GitHub auth. Modes are `full` (everything) and `partial` (interactive component checklist) — nothing else. `MAC_SETUP_MODE=full` makes it non-interactive; `MAC_SETUP_COMPONENTS="ghostty nvim agents"` runs an exact component list instead (the second-machine recipe — recorded like a partial run so `update` replays it).
+The repo is public, so this works with no GitHub auth. Modes are `full` (everything) and `partial` (interactive component checklist) — nothing else. `MAC_SETUP_MODE=full` makes it non-interactive; `MAC_SETUP_COMPONENTS="ghostty nvim agents"` runs an exact component list instead, recorded like a partial run so `update` replays it.
 
 ## Commands
 
@@ -22,10 +22,10 @@ The repo is public, so this works with no GitHub auth. Modes are `full` (everyth
 ./install.sh --mode partial      # component checklist
 ./install.sh ghostty agents      # run specific components (doesn't change the machine's record)
 ./install.sh update              # after git pull: replay this machine's recorded selection
-./scripts/sync-theme.sh          # pull lanna-tone theme copies from the canonical theme repo
+./scripts/sync-theme.sh          # pull the lanna-tone theme copy from the canonical theme repo
 ```
 
-Components: `ghostty` `nvim` `shell` `devtools` `agents` `apps` `macos` (`claude` is a deprecated alias for `agents`; `alacritty` and `zellij` were removed 2026-08 and warn-then-skip for old machine records). `agents` = Claude Code (native installer → `~/.local/bin`) + statusline, Codex CLI (brew cask), Grok CLI — deliberately separate from `devtools` (conda+nvm) so a second machine can take one without the other. Runs are recorded to `~/.config/mac-setup/selection` (untracked, per-machine): full by mode name (re-resolved at `update` time, so components later added to full get picked up), partial by exact component list. Records from the retired `minimal`/`select` modes re-prompt once (clean break, chosen deliberately).
+Components: `ghostty` `nvim` `shell` `devtools` `agents` `apps` `macos` (`claude` is a deprecated alias for `agents`; the retired `alacritty`/`zellij` names warn-then-skip so old machine records keep replaying). `agents` = Claude Code (native installer → `~/.local/bin`) + statusline, Codex CLI (brew cask), Grok CLI — deliberately separate from `devtools` (conda+nvm) so a second machine can take one without the other. Runs are recorded to `~/.config/mac-setup/selection` (untracked, per-machine): full by mode name (re-resolved at `update` time, so components later added to full get picked up), partial by exact component list. Records from the retired `minimal`/`select` modes re-prompt once.
 
 ## Architecture
 
@@ -35,25 +35,28 @@ Core mechanics in `install.sh` that everything relies on:
 
 - **`link()`** symlinks a repo path into `$HOME`, backing up any existing real file to `name.bak-<timestamp>` first. Because configs are symlinks, editing `~/.config/ghostty/...` edits this repo's working tree — live-machine tweaks show up as git diffs here, and config-only changes need no reinstall on other machines (just commit/push, `git pull` there).
 - **Idempotency is a hard invariant.** Every component must be safely re-runnable: `brew_install` skips installed packages, `clone_if_absent`, `ensure_local_block` appends to `~/.zshrc.local` once keyed by a marker comment. Keep this property when editing components.
+- **Failure isolation.** Each component runs in its own `set -e` subshell: it stops at its first internal error, but the run continues, collects failures, and ends with "components with errors: … — re-run: ./install.sh …" (exit 1). Only `bootstrap_homebrew` is fail-fast — everything needs brew, and it pre-checks that `/opt/homebrew` is writable by the current user (printing the `sudo chown` fix if not).
 - **`~/.zshrc.local`** (untracked, sourced at the end of the tracked `.zshrc`) is where all machine-specific state goes: conda/nvm/grok init blocks, secrets, work paths. The tracked `.zshrc` must stay portable across machines and people.
-- **Never runs as root**; Apple Silicon only, Homebrew assumed at `/opt/homebrew`.
+- **Never runs as root, never sudos** — anything needing privileges is printed as an instruction. Apple Silicon only; Homebrew assumed at `/opt/homebrew`.
 
 ## Gotchas / invariants
 
+- **Nothing installs from the App Store — ever.** Sign-in can't be pre-checked (attempting an install is what triggers the macOS auth dialog), so automated MAS installs are banned. Do not add `mas "..."` entries to the Brewfile; the manual `mas install` one-liners live there as comments, and the `mas` CLI stays installed as a tool.
+- **`comp_apps` converges; it never upgrades or replaces.** `brew bundle install --no-upgrade`, plus a presence probe: any cask whose app already exists in `/Applications` but isn't brew-managed goes into `HOMEBREW_BUNDLE_CASK_SKIP` and is left alone. Pkg-based casks expose no `.app` artifact — they have an explicit probe table (`microsoft-office`, `tailscale-app`); extend it when adding pkg casks. GUI casks carry `args: { adopt: true }` so identical manual installs get adopted. Bundle failures warn, never abort.
 - **herdr is linked file-level, not directory-level**: `~/.config/herdr` holds runtime state (sockets, logs, session.json), so only `config.toml` is symlinked. herdr's in-app settings (`ctrl+b s`) write through the symlink — TUI changes appear as diffs in `config/herdr/config.toml`.
-- **lanna-tone theme copies are generated, not sources.** Source of truth is [kengggg/lanna-tone-theme](https://github.com/kengggg/lanna-tone-theme); edit there and run `./scripts/sync-theme.sh` — never hand-edit the copies under `config/*/themes/`.
+- **The lanna-tone theme copy is generated, not source.** Source of truth is [kengggg/lanna-tone-theme](https://github.com/kengggg/lanna-tone-theme); edit there and run `./scripts/sync-theme.sh` — never hand-edit `config/ghostty/themes/lanna-tone`.
 - **`comp_agents` merges, never overwrites**: `~/.claude/settings.json` belongs to Claude Code; only the `statusLine` key is jq-merged in. Preserve that pattern for any future keys.
-- **grok's installer appends to `~/.zshrc`** (which is our symlinked tracked file); `comp_agents` strips that block back out of the repo copy so the canonical init lives only in `~/.zshrc.local`. Watch for similar installer pollution of tracked dotfiles — it shows up as an uncommitted diff on `home/zshrc`.
+- **grok's installer appends to `~/.zshrc`** (our symlinked tracked file); `comp_agents` strips that block back out of the repo copy so the canonical init lives only in `~/.zshrc.local`. Watch for similar installer pollution of tracked dotfiles — it shows up as an uncommitted diff on `home/zshrc`.
 - **Agent configs stay per-machine.** `~/.codex/config.toml`, Claude/Codex/Grok credentials, and sign-ins are deliberately NOT tracked — the repo is public. Only the statusline script and `statusLine` settings key are shared.
-- **Nothing installs from the App Store — ever.** Automated MAS installs were removed 2026-08 after repeated failures (sign-in can't be pre-checked; attempts pop auth dialogs mid-run). Do not add `mas "..."` entries to the Brewfile; the manual `mas install` one-liners (LINE, Amphetamine, Xcode) live there as comments, and the `mas` CLI stays installed as a tool. Brew casks cover everything else (OrbStack replaces Docker Desktop — do not add Docker Desktop).
-- **Ghostty is the only terminal** (Alacritty and zellij removed 2026-08; herdr won the multiplexer trial). Ghostty maps Thai (U+0E00–U+0E7F) to Arundina Sans Mono via `font-codepoint-map`, auto-launches herdr, and pairs stock TokyoNight themes with macOS appearance; lanna-tone survives only as the revert copy in `config/ghostty/themes/`.
+- **`comp_shell` auto-fixes compaudit findings** (two-account machines leave completion paths owned by another user): flagged symlinks in user-writable dirs are replaced with owned copies. `sudo chown` cannot fix these — macOS App Management blocks writes into other apps' bundles, even for root.
+- **Ghostty is the only terminal.** It maps Thai (U+0E00–U+0E7F) to Arundina Sans Mono via `font-codepoint-map`, auto-launches herdr, and pairs stock TokyoNight themes with macOS appearance; lanna-tone survives only as the revert copy in `config/ghostty/themes/`.
 - Modes are exactly `full` and `partial`; the old `minimal`/`select` names were removed with no aliases. The old terminal-only preset lives on only as a documented `MAC_SETUP_COMPONENTS="ghostty nvim"` example.
 
 ## Adding things
 
-- **App**: `cask "name"` in `Brewfile`, then `./install.sh apps`
+- **App**: `cask "name", args: { adopt: true }` in `Brewfile`, then `./install.sh apps`
 - **Dotfile**: add the file under `config/` or `home/`, add a `link` line in the relevant `comp_*` function, re-run that component
-- **New component**: `comp_<name>()` + a case entry in `run_component`, `choose_components`, and the mode presets; update the README tables
+- **New component**: `comp_<name>()` + a case entry in `run_component`, `choose_components`, and the full-mode preset; update the README tables
 - **macOS tweak**: edit `comp_macos`
 
 The README's "Updating other machines" table maps change types to the component to re-run — keep it accurate when changing the installer.

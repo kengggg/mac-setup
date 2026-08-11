@@ -61,9 +61,9 @@ cask "microsoft-office", args: { adopt: true }   # Word / Excel / PowerPoint
 cask "cleanmymac", args: { adopt: true }
 
 # --- App Store apps — NOT installed by this repo -------------------------------
-# App Store installs proved too unpredictable to automate (sign-in can't be
-# pre-checked, and attempts pop auth dialogs mid-run). When a machine wants
-# these, install them manually — signed into the App Store, in a terminal:
+# App Store installs are deliberately manual: sign-in can't be pre-checked,
+# and install attempts pop auth dialogs mid-run. When a machine wants these,
+# install them yourself — signed into the App Store, in a terminal:
 #   mas install 539883307    # LINE
 #   mas install 937984704    # Amphetamine
 #   mas install 497799835    # Xcode (~12GB)
