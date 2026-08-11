@@ -16,7 +16,7 @@ brew "eza"         # modern ls (aliased in .zshrc)
 # (git comes from Xcode Command Line Tools — a prerequisite, installed before this runs)
 brew "gh"          # GitHub CLI
 brew "node"        # runtime for some LSP servers (pyright, ts_ls)
-brew "mas"         # Mac App Store CLI — installs the `mas` entries below
+brew "mas"         # Mac App Store CLI — only for the MANUAL installs listed at the bottom
 
 # --- Fonts ---
 cask "font-meslo-lg-nerd-font"   # the Nerd Font Ghostty + Powerlevel10k use
@@ -60,11 +60,10 @@ cask "ollama-app", args: { adopt: true }
 cask "microsoft-office", args: { adopt: true }   # Word / Excel / PowerPoint
 cask "cleanmymac", args: { adopt: true }
 
-# --- App Store apps ------------------------------------------------------------
-# Installed by install.sh's own App Store loop (not brew bundle): interactive
-# runs attempt them (macOS may ask to sign in — just do it there); unattended
-# runs skip them with a warning.
-mas "LINE",        id: 539883307
-mas "Amphetamine", id: 937984704
-# Xcode (~12GB) is deliberately not part of every machine; when one needs it:
-#   mas install 497799835
+# --- App Store apps — NOT installed by this repo -------------------------------
+# App Store installs proved too unpredictable to automate (sign-in can't be
+# pre-checked, and attempts pop auth dialogs mid-run). When a machine wants
+# these, install them manually — signed into the App Store, in a terminal:
+#   mas install 539883307    # LINE
+#   mas install 937984704    # Amphetamine
+#   mas install 497799835    # Xcode (~12GB)
