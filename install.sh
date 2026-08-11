@@ -332,7 +332,12 @@ EOF
 }
 
 comp_macos() {
-  log "[macos] no system tweaks configured yet (edit comp_macos to add)"
+  log "[macos] system tweaks"
+  # Ctrl+Cmd+drag anywhere inside a window to move it. Needed because Ghostty
+  # runs with macos-titlebar-style = hidden — no titlebar to grab. Global for
+  # all apps; takes effect for apps launched after the setting.
+  defaults write -g NSWindowShouldDragOnGesture -bool true
+  log "enabled Ctrl+Cmd+drag window moving (relaunch apps to pick it up)"
 }
 
 run_component() {
