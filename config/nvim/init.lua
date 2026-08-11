@@ -1,8 +1,8 @@
 -- ~/.config/nvim/init.lua
 -- Hand-rolled, minimal-but-productive Neovim config (a VS Code replacement).
 -- Plugins managed by lazy.nvim. Read top-to-bottom; each section is labelled.
--- Your IDE = Alacritty (window) + zellij (panes/terminals) + nvim (editing/LSP).
--- That's why there's no terminal plugin here: use zellij splits instead.
+-- Your IDE = Ghostty (window) + herdr (panes/terminals) + nvim (editing/LSP).
+-- That's why there's no terminal plugin here: use multiplexer splits instead.
 
 --------------------------------------------------------------------------------
 -- 1. Leader key  (must be set BEFORE plugins load)
@@ -159,7 +159,7 @@ require("lazy").setup({
         },
       })
       map("n", "<leader>e", "<cmd>Neotree toggle<CR>", { desc = "Toggle file explorer" })
-      -- Focus the explorer (Ctrl-h is eaten by zellij's move mode, so use this)
+      -- Focus the explorer (reliable even when a multiplexer intercepts Ctrl-h)
       map("n", "<leader>E", "<cmd>Neotree focus<CR>", { desc = "Focus file explorer" })
     end,
   },

@@ -9,7 +9,7 @@
 #   ./install.sh alacritty nvim   # run specific components directly
 #   ./install.sh update           # re-run this machine's recorded selection (after git pull)
 #
-# Components: alacritty  ghostty  zellij  nvim  shell  devtools  agents  apps  macos
+# Components: alacritty  ghostty  nvim  shell  devtools  agents  apps  macos
 # One-liner override:  MAC_SETUP_MODE=full /bin/bash -c "$(curl -fsSL …/bootstrap.sh)"
 # Exact components (recorded like a partial run):
 #   MAC_SETUP_COMPONENTS="ghostty nvim agents" /bin/bash -c "$(curl -fsSL …/bootstrap.sh)"
@@ -118,8 +118,8 @@ comp_alacritty() {
 
 comp_ghostty() {
   log "[ghostty]"
-  # herdr: Ghostty's config auto-launches it (trial vs zellij, which stays
-  # the Alacritty default) — must be installed or Ghostty windows die on open.
+  # herdr: Ghostty's config auto-launches it — must be installed or Ghostty
+  # windows die on open.
   brew_install ghostty font-meslo-lg-nerd-font herdr
   # Arundina Sans Mono (Thai glyphs) has no brew cask; fetch TTFs from the
   # canonical TLWG release. Ghostty maps U+0E00-U+0E7F to it (see config).
@@ -141,12 +141,6 @@ comp_ghostty() {
   # macOS; the native Zoom menu item is the Alacritty ToggleMaximized
   # equivalent). Applied at next Ghostty launch.
   defaults write com.mitchellh.ghostty NSUserKeyEquivalents -dict-add "Zoom" '@$m'
-}
-
-comp_zellij() {
-  log "[zellij]"
-  brew_install zellij
-  link config/zellij "$HOME/.config/zellij"
 }
 
 comp_nvim() {
@@ -292,7 +286,7 @@ run_component() {
   case "$1" in
     alacritty) comp_alacritty ;;
     ghostty)   comp_ghostty ;;
-    zellij)    comp_zellij ;;
+    zellij)    warn "the zellij component was removed (2026-08); skipping" ;;
     nvim)      comp_nvim ;;
     shell)     comp_shell ;;
     devtools)  comp_devtools ;;
@@ -320,21 +314,20 @@ choose_mode() {  # sets MODE
 
 choose_components() {  # sets COMPONENTS
   printf '\nSelect components by number (space-separated, e.g. "1 3"):\n'
-  printf '  1) alacritty\n  2) zellij\n  3) nvim\n  4) shell\n  5) devtools\n  6) agents\n  7) ghostty\n  8) apps\n  9) macos\n'
+  printf '  1) ghostty\n  2) alacritty\n  3) nvim\n  4) shell\n  5) devtools\n  6) agents\n  7) apps\n  8) macos\n'
   printf 'Components: '
   local nums n; read -r nums </dev/tty
   COMPONENTS=""
   for n in $nums; do
     case "$n" in
-      1) COMPONENTS="$COMPONENTS alacritty" ;;
-      2) COMPONENTS="$COMPONENTS zellij" ;;
+      1) COMPONENTS="$COMPONENTS ghostty" ;;
+      2) COMPONENTS="$COMPONENTS alacritty" ;;
       3) COMPONENTS="$COMPONENTS nvim" ;;
       4) COMPONENTS="$COMPONENTS shell" ;;
       5) COMPONENTS="$COMPONENTS devtools" ;;
       6) COMPONENTS="$COMPONENTS agents" ;;
-      7) COMPONENTS="$COMPONENTS ghostty" ;;
-      8) COMPONENTS="$COMPONENTS apps" ;;
-      9) COMPONENTS="$COMPONENTS macos" ;;
+      7) COMPONENTS="$COMPONENTS apps" ;;
+      8) COMPONENTS="$COMPONENTS macos" ;;
       *) warn "ignoring invalid choice: $n" ;;
     esac
   done
@@ -382,7 +375,7 @@ elif [ -z "$COMPONENTS" ]; then            # may already be set by `update` repl
   else
     [ -z "$MODE" ] && choose_mode          # no mode given -> interactive menu
     case "$MODE" in
-      full)    COMPONENTS="alacritty ghostty zellij nvim devtools shell agents apps macos" ;;
+      full)    COMPONENTS="alacritty ghostty nvim devtools shell agents apps macos" ;;
       partial) choose_components ;;
       *) echo "unknown mode: $MODE (use full|partial|update)" >&2; exit 1 ;;
     esac

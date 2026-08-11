@@ -7,13 +7,11 @@ import = ["~/.config/alacritty/themes/lanna-tone.toml"]
 [env]
 TERM = "xterm-256color"
 
-# Auto-launch zellij in every Alacritty window (each window = its own session).
-# Run it via a LOGIN zsh so ~/.zprofile (Homebrew PATH etc.) is loaded first,
-# otherwise commands like `zellij` and other brew tools aren't on PATH.
-# To go back to a plain shell, comment out the block below.
-[terminal.shell]
-program = "/bin/zsh"
-args = ["--login", "-c", "exec zellij"]   # bare `zellij` (login shell has brew on PATH) — arch/OS-independent
+# Plain login zsh — Ghostty+herdr is the multiplexed setup (zellij dropped
+# 2026-08). To auto-launch a program per window, restore a block like:
+#   [terminal.shell]
+#   program = "/bin/zsh"
+#   args = ["--login", "-c", "exec <program>"]   # login shell = brew on PATH
 
 [window]
 # Open at a fixed 120x50 window. Fill the screen on demand with Cmd+Shift+M

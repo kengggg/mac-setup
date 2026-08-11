@@ -13,13 +13,12 @@ font-codepoint-map = U+0E00-U+0E7F=Arundina Sans Mono
 # Paired stock themes following macOS appearance (herdr mirrors via
 # auto_switch in config/herdr/config.toml). lanna-tone didn't sit well
 # with herdr's UI; its copy stays in themes/ for easy revert
-# (dark:lanna-tone), and Alacritty/zellij still use it.
+# (dark:lanna-tone), and Alacritty still uses it.
 theme = light:TokyoNight Day,dark:TokyoNight
 
-# --- Shell: auto-launch herdr (trial — Alacritty keeps zellij) -------------
+# --- Shell: auto-launch herdr ----------------------------------------------
 # Login zsh so brew tools are on PATH. Bare `herdr` launches/attaches THE
-# persistent session (workspaces inside it), unlike zellij's
-# session-per-window model. Revert to zellij by swapping the exec.
+# persistent session (workspaces inside it).
 command = /bin/zsh --login -c "exec herdr"
 
 # --- Window ----------------------------------------------------------------
@@ -50,7 +49,7 @@ copy-on-select = clipboard
 # keyboard protocol, so protocol-aware apps get Shift+Enter natively).
 keybind = shift+enter=text:\x1b\r
 keybind = f11=toggle_fullscreen
-# Ghostty's default alt+left/right shadow zellij pane navigation — pass through.
+# Pass alt+left/right through to terminal apps instead of Ghostty's defaults.
 keybind = alt+left=unbind
 keybind = alt+right=unbind
 # Cmd+Shift+M maximize/restore: Ghostty's toggle_maximize is a no-op on
