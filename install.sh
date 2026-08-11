@@ -281,6 +281,7 @@ EOF
 
 comp_apps() {
   log "[apps] brew bundle (GUI apps + full package set)"
+  brew_install jq                       # used by the presence probe below
   # codexbar once lived in steipete/tap; it's now in homebrew/cask. A stale
   # tap shadows the official cask and trips brew's untrusted-tap guard in
   # non-interactive runs, so drop the tap first (nothing else is used from it).
@@ -288,12 +289,43 @@ comp_apps() {
     log "removing stale steipete/tap (codexbar now lives in homebrew/cask)"
     brew untap --force steipete/tap
   fi
+
+  # Presence-based skip: an app that already exists in /Applications —
+  # manually installed, App Store, or installed by another account — is left
+  # alone. brew would otherwise treat it as uninstalled and re-attempt it on
+  # EVERY run: re-downloading, then sudo-prompting to replace an app it may
+  # not even own. Skipped apps keep updating themselves and stay outside brew.
+  local skip="" managed casks tok app
+  managed=" $(brew list --cask 2>/dev/null | tr '\n' ' ') "
+  casks="$(sed -nE 's/^cask "([^"]+)".*/\1/p' "$REPO/Brewfile")"
+  while IFS=$'\t' read -r tok app; do
+    [ -n "$app" ] || continue
+    case "$managed" in *" $tok "*) continue ;; esac   # brew-managed: bundle skips it itself
+    if [ -e "/Applications/$app" ] || [ -e "$HOME/Applications/$app" ]; then
+      skip="$skip $tok"
+    fi
+  done < <(brew info --cask --json=v2 $casks 2>/dev/null \
+    | jq -r '.casks[] | .token as $t | (.artifacts[]? | select(.app?) | .app[0]? // empty) as $a | [$t, $a] | @tsv')
+  # pkg-based casks expose no .app artifact (and their installers sudo) —
+  # probe those from an explicit token:app table
+  while IFS=: read -r tok app; do
+    [ -n "$tok" ] || continue
+    case "$managed" in *" $tok "*) continue ;; esac
+    if [ -e "/Applications/$app" ]; then skip="$skip $tok"; fi
+  done <<'EOF'
+microsoft-office:Microsoft Word.app
+tailscale-app:Tailscale.app
+EOF
+  if [ -n "$skip" ]; then
+    log "leaving already-present apps alone:${skip}"
+  fi
+
   # --no-upgrade: converge on missing packages only — upgrading what's already
   # installed is `brew upgrade`'s job, and a broken upgrade of an unrelated
   # cask (seen: a font cask whose files were deleted outside brew) must not
   # kill a setup run. Bundle errors are reported but non-fatal for the same
   # reason: one bad app shouldn't abort the remaining components.
-  if ! brew bundle install --no-upgrade --file="$REPO/Brewfile"; then
+  if ! HOMEBREW_BUNDLE_CASK_SKIP="${skip# }" brew bundle install --no-upgrade --file="$REPO/Brewfile"; then
     warn "brew bundle finished with errors (see above) — fix and re-run: ./install.sh apps"
   fi
 }
