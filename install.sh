@@ -92,6 +92,7 @@ provision_nvim() {
   nvim --headless "+Lazy! restore" +qa || true
   log "provisioning treesitter parsers + Mason servers (this can take a while)"
   MAC_SETUP_PROVISION=1 nvim --headless -c "luafile $REPO/scripts/nvim-provision.lua" -c "qa!" || true
+  echo   # the provision script's last write has no trailing newline
 }
 
 # --- bootstrap (always runs first; everything needs Homebrew) -----------------
@@ -103,6 +104,15 @@ bootstrap_homebrew() {
     log "Homebrew already installed"
   fi
   eval "$(/opt/homebrew/bin/brew shellenv)"
+  # Fail fast if brew's prefix belongs to another user (e.g. the machine was
+  # first set up under a different account) — every component needs brew, and
+  # dying here with the fix beats dying mid-run on a random package.
+  if [ ! -w /opt/homebrew ]; then
+    warn "/opt/homebrew is not writable by $USER — brew installs will fail."
+    warn "Fix once (from an admin account), then re-run:"
+    warn "  sudo chown -R $USER /opt/homebrew"
+    exit 1
+  fi
   if ! grep -q 'brew shellenv' "$HOME/.zprofile" 2>/dev/null; then
     echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> "$HOME/.zprofile"
     log "added brew shellenv to ~/.zprofile"
@@ -168,10 +178,12 @@ comp_devtools() {
   # Miniforge (conda + mamba) -> ~/miniforge3 (batch mode skips rc editing)
   if [ ! -x "$HOME/miniforge3/bin/conda" ]; then
     log "installing Miniforge to ~/miniforge3"
-    local tmp; tmp="$(mktemp)"
-    curl -fsSL "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-MacOSX-$(uname -m).sh" -o "$tmp"
-    bash "$tmp" -b -p "$HOME/miniforge3"
-    rm -f "$tmp"
+    # the installer refuses to run unless its filename ends in .sh (its
+    # "was I sourced?" heuristic), so don't hand it a bare mktemp file
+    local tmp; tmp="$(mktemp -d)"
+    curl -fsSL "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-MacOSX-$(uname -m).sh" -o "$tmp/miniforge.sh"
+    bash "$tmp/miniforge.sh" -b -p "$HOME/miniforge3"
+    rm -rf "$tmp"
   else
     log "Miniforge already installed"
   fi
