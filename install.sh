@@ -175,15 +175,36 @@ comp_shell() {
   # Machines with a two-account history can leave completion paths owned by
   # another user or group-writable; oh-my-zsh then prints a compaudit lecture
   # on EVERY shell start (which in turn trips p10k's instant-prompt warning).
-  # Detect it here and say exactly how to fix — ownership needs sudo, which
-  # this installer never uses itself.
-  local insecure
-  insecure="$(zsh -fc 'autoload -Uz compaudit && compaudit' 2>/dev/null || true)"
+  # Auto-fix what we can without sudo: chown fails even as root on symlink
+  # targets inside app bundles (macOS App Management TCC), but the symlink's
+  # own directory is ours — replace the link with a real, user-owned copy.
+  # (probe ignores inherited FPATH — zsh defaults + brew's site-functions,
+  # deterministically; brew shellenv's fpath line is zsh-only and does nothing
+  # for this bash script)
+  local audit='fpath+=(/opt/homebrew/share/zsh/site-functions); autoload -Uz compaudit && compaudit'
+  local insecure p
+  insecure="$(env -u FPATH zsh -fc "$audit" 2>/dev/null || true)"
   if [ -n "$insecure" ]; then
-    warn "zsh flags insecure completion paths — oh-my-zsh will warn on every new shell:"
-    printf '%s\n' "$insecure" >&2
-    warn "fix once with:"
-    warn '  compaudit | xargs sudo chown $USER && compaudit | xargs chmod g-w,o-w'
+    while IFS= read -r p; do
+      [ -n "$p" ] || continue
+      if [ -L "$p" ] && [ -w "$(dirname "$p")" ]; then
+        cp -L "$p" "$p.tmp.$$" && chmod u+w,g-w,o-w "$p.tmp.$$" && mv "$p.tmp.$$" "$p"
+        log "compaudit fix: replaced symlink with owned copy: $p"
+      elif [ -O "$p" ]; then
+        chmod g-w,o-w "$p" 2>/dev/null || true
+        log "compaudit fix: tightened permissions: $p"
+      fi
+    done <<EOF
+$insecure
+EOF
+    insecure="$(env -u FPATH zsh -fc "$audit" 2>/dev/null || true)"
+    if [ -n "$insecure" ]; then
+      warn "still-insecure completion paths remain (oh-my-zsh will warn on new shells):"
+      printf '%s\n' "$insecure" >&2
+      warn "these need manual attention (ownership by another user + macOS App"
+      warn "Management can block even sudo chown; a brew reinstall of the owning"
+      warn "app under this account usually clears it)"
+    fi
   fi
 }
 
