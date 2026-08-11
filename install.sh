@@ -288,7 +288,14 @@ comp_apps() {
     log "removing stale steipete/tap (codexbar now lives in homebrew/cask)"
     brew untap --force steipete/tap
   fi
-  brew bundle --file="$REPO/Brewfile"
+  # --no-upgrade: converge on missing packages only — upgrading what's already
+  # installed is `brew upgrade`'s job, and a broken upgrade of an unrelated
+  # cask (seen: a font cask whose files were deleted outside brew) must not
+  # kill a setup run. Bundle errors are reported but non-fatal for the same
+  # reason: one bad app shouldn't abort the remaining components.
+  if ! brew bundle install --no-upgrade --file="$REPO/Brewfile"; then
+    warn "brew bundle finished with errors (see above) — fix and re-run: ./install.sh apps"
+  fi
 }
 
 comp_macos() {
