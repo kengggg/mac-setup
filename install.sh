@@ -320,28 +320,44 @@ EOF
     log "leaving already-present apps alone:${skip}"
   fi
 
-  # App Store apps need a signed-in store; when signed out, `mas install`
-  # pops a GUI sign-in dialog and fails with cryptic ISErrorDomain errors.
-  # mas 7 dropped its `account` query and macOS exposes no direct probe, so
-  # best effort: a Mac with no Apple Account at all (fresh-machine case)
-  # definitely can't install mas apps — skip them with one clear message.
-  local mas_skip=""
-  if grep -q '^mas ' "$REPO/Brewfile" && \
-     ! defaults read MobileMeAccounts Accounts 2>/dev/null | grep -q AccountID; then
-    mas_skip="$(sed -nE 's/^mas "([^"]+)".*/\1/p' "$REPO/Brewfile" | tr '\n' ' ')"
-    mas_skip="${mas_skip% }"
-    warn "no Apple Account on this Mac — skipping App Store apps: ${mas_skip}"
-    warn "sign in to the App Store, then re-run: ./install.sh apps"
-  fi
-
   # --no-upgrade: converge on missing packages only — upgrading what's already
   # installed is `brew upgrade`'s job, and a broken upgrade of an unrelated
   # cask (seen: a font cask whose files were deleted outside brew) must not
   # kill a setup run. Bundle errors are reported but non-fatal for the same
-  # reason: one bad app shouldn't abort the remaining components.
-  if ! HOMEBREW_BUNDLE_CASK_SKIP="${skip# }" HOMEBREW_BUNDLE_MAS_SKIP="$mas_skip" \
+  # reason: one bad app shouldn't abort the remaining components. mas entries
+  # are always excluded here — the App Store loop below handles them.
+  local mas_all
+  mas_all="$(sed -nE 's/^mas "([^"]+)".*/\1/p' "$REPO/Brewfile" | tr '\n' ' ')"
+  if ! HOMEBREW_BUNDLE_CASK_SKIP="${skip# }" HOMEBREW_BUNDLE_MAS_SKIP="${mas_all% }" \
        brew bundle install --no-upgrade --file="$REPO/Brewfile"; then
     warn "brew bundle finished with errors (see above) — fix and re-run: ./install.sh apps"
+  fi
+
+  # App Store apps — handled here, not by brew bundle: sign-in status cannot
+  # be pre-checked (attempting an install IS what triggers the macOS auth
+  # dialog), and a signed-out mas is loud and cryptic. Per app: installed ->
+  # silent skip; missing + terminal attached -> attempt, letting the user
+  # answer any sign-in dialog right there; missing + unattended -> skip with
+  # a warning. Raw mas output is discarded; one line per outcome.
+  local installed mas_fail="" id name
+  installed="$(mas list 2>/dev/null || true)"
+  while read -r id name; do
+    [ -n "$id" ] || continue
+    if printf '%s\n' "$installed" | grep -q "^[[:space:]]*$id[[:space:]]"; then
+      continue
+    fi
+    if [ ! -t 0 ]; then
+      warn "$name: skipped (App Store installs need an interactive run)"
+      mas_fail="$mas_fail $name"
+    elif mas install "$id" >/dev/null 2>&1; then
+      log "installed $name from the App Store"
+    else
+      warn "$name: App Store install failed (usually: not signed in)"
+      mas_fail="$mas_fail $name"
+    fi
+  done < <(sed -nE 's/^mas "([^"]+)", *id: *([0-9]+).*/\2 \1/p' "$REPO/Brewfile")
+  if [ -n "$mas_fail" ]; then
+    warn "sign in via the App Store app, then re-run: ./install.sh apps"
   fi
 }
 
