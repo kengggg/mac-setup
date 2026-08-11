@@ -1,4 +1,5 @@
-# Ghostty config — mirrors config/alacritty/alacritty.toml.
+# Ghostty config — the terminal of this setup (settings inherited from the
+# retired Alacritty config, 2026-08).
 # Hot-reload with Cmd+Shift+, (font-codepoint-map only applies to new windows).
 # Every key doubles as a CLI flag; `ghostty +show-config --default --docs` = full reference.
 # NOTE: Ghostty has no inline comments — keep comments on their own lines.
@@ -13,7 +14,7 @@ font-codepoint-map = U+0E00-U+0E7F=Arundina Sans Mono
 # Paired stock themes following macOS appearance (herdr mirrors via
 # auto_switch in config/herdr/config.toml). lanna-tone didn't sit well
 # with herdr's UI; its copy stays in themes/ for easy revert
-# (dark:lanna-tone), and Alacritty still uses it.
+# (dark:lanna-tone).
 theme = light:TokyoNight Day,dark:TokyoNight
 
 # --- Shell: auto-launch herdr ----------------------------------------------
