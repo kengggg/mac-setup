@@ -150,7 +150,7 @@ first run on a machine that already had a setup:
 ## Notes
 
 - Apple Silicon only; assumes Homebrew at `/opt/homebrew`
-- App Store apps in the `Brewfile` (LINE, Amphetamine) install via the installer's own `mas` loop: interactive runs attempt them (sign in when macOS asks), unattended runs skip them with a warning — re-run `./install.sh apps` after signing in. Xcode is deliberately manual: `mas install 497799835`
+- App Store apps are deliberately **not** installed by this repo — too unpredictable to automate. The Brewfile documents manual one-liners (LINE, Amphetamine, Xcode) to run yourself while signed into the App Store
 - `~/.zprofile` is untracked; `install.sh` writes the brew `shellenv` line
 - Symlinks point into this repo; don't move it without rerunning `./install.sh symlinks`
 - The lanna-tone theme's source of truth is [kengggg/lanna-tone-theme](https://github.com/kengggg/lanna-tone-theme). The ghostty copy here is synced with `./scripts/sync-theme.sh` — edit the theme repo, not the copy.
