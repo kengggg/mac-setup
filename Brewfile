@@ -22,40 +22,43 @@ brew "mas"         # Mac App Store CLI — installs the `mas` entries below
 cask "font-meslo-lg-nerd-font"   # the Nerd Font Ghostty + Powerlevel10k use
 
 # --- Terminal emulator ---
-cask "ghostty"                   # terminal with per-script font mapping (Thai via Arundina)
+cask "ghostty", args: { adopt: true }   # per-script font mapping (Thai via Arundina)
 
 # --- GUI apps -----------------------------------------------------------------
 # Find cask names with:  brew search --cask <name>
 # Snapshot everything already installed with:  brew bundle dump --file=Brewfile.all
+# adopt: take over an identical manually-installed app instead of erroring
+# (adoption fails on version mismatch — migrate those with
+#  `brew install --cask --force <name>` when you want brew to own them)
 
 # Browsers & comms
-cask "google-chrome"
-cask "firefox"
-cask "slack"
-cask "telegram"
-cask "discord"
-cask "miro"
+cask "google-chrome", args: { adopt: true }
+cask "firefox", args: { adopt: true }
+cask "slack", args: { adopt: true }
+cask "telegram", args: { adopt: true }
+cask "discord", args: { adopt: true }
+cask "miro", args: { adopt: true }
 
 # Security & networking
-cask "1password"
-cask "tailscale-app"
+cask "1password", args: { adopt: true }
+cask "tailscale-app", args: { adopt: true }
 
 # Dev
-cask "visual-studio-code"
-cask "datagrip"
-cask "dbeaver-community"
-cask "orbstack"            # Docker engine + CLI (replaces Docker Desktop)
-cask "termius"
-cask "codexbar"            # Codex usage in the menu bar
+cask "visual-studio-code", args: { adopt: true }
+cask "datagrip", args: { adopt: true }
+cask "dbeaver-community", args: { adopt: true }
+cask "orbstack", args: { adopt: true }   # Docker engine + CLI (replaces Docker Desktop)
+cask "termius", args: { adopt: true }
+cask "codexbar", args: { adopt: true }   # Codex usage in the menu bar
 
 # AI apps
-cask "claude"              # Claude desktop app
-cask "chatgpt"
-cask "ollama-app"
+cask "claude", args: { adopt: true }     # Claude desktop app
+cask "chatgpt", args: { adopt: true }
+cask "ollama-app", args: { adopt: true }
 
 # Office & utilities
-cask "microsoft-office"    # Word / Excel / PowerPoint
-cask "cleanmymac"
+cask "microsoft-office", args: { adopt: true }   # Word / Excel / PowerPoint
+cask "cleanmymac", args: { adopt: true }
 
 # --- App Store apps (via mas; requires being signed into the App Store) -------
 mas "LINE",        id: 539883307
