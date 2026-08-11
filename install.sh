@@ -320,12 +320,27 @@ EOF
     log "leaving already-present apps alone:${skip}"
   fi
 
+  # App Store apps need a signed-in store; when signed out, `mas install`
+  # pops a GUI sign-in dialog and fails with cryptic ISErrorDomain errors.
+  # mas 7 dropped its `account` query and macOS exposes no direct probe, so
+  # best effort: a Mac with no Apple Account at all (fresh-machine case)
+  # definitely can't install mas apps — skip them with one clear message.
+  local mas_skip=""
+  if grep -q '^mas ' "$REPO/Brewfile" && \
+     ! defaults read MobileMeAccounts Accounts 2>/dev/null | grep -q AccountID; then
+    mas_skip="$(sed -nE 's/^mas "([^"]+)".*/\1/p' "$REPO/Brewfile" | tr '\n' ' ')"
+    mas_skip="${mas_skip% }"
+    warn "no Apple Account on this Mac — skipping App Store apps: ${mas_skip}"
+    warn "sign in to the App Store, then re-run: ./install.sh apps"
+  fi
+
   # --no-upgrade: converge on missing packages only — upgrading what's already
   # installed is `brew upgrade`'s job, and a broken upgrade of an unrelated
   # cask (seen: a font cask whose files were deleted outside brew) must not
   # kill a setup run. Bundle errors are reported but non-fatal for the same
   # reason: one bad app shouldn't abort the remaining components.
-  if ! HOMEBREW_BUNDLE_CASK_SKIP="${skip# }" brew bundle install --no-upgrade --file="$REPO/Brewfile"; then
+  if ! HOMEBREW_BUNDLE_CASK_SKIP="${skip# }" HOMEBREW_BUNDLE_MAS_SKIP="$mas_skip" \
+       brew bundle install --no-upgrade --file="$REPO/Brewfile"; then
     warn "brew bundle finished with errors (see above) — fix and re-run: ./install.sh apps"
   fi
 }
@@ -438,7 +453,27 @@ if [ -z "${COMPONENTS// /}" ]; then
 fi
 
 log "components:${COMPONENTS}"
-bootstrap_homebrew
-for c in $COMPONENTS; do run_component "$c"; done
+bootstrap_homebrew                           # fail-fast: everything needs brew
+
+# One failing component must not abort the rest of the run. Each component
+# executes in a subshell with its own set -e (so it still stops at its first
+# internal error); failures are collected and summarized at the end.
+FAILED=""
+set +e
+for c in $COMPONENTS; do
+  ( set -e; run_component "$c" )
+  if [ $? -ne 0 ]; then
+    warn "[$c] failed — continuing with the remaining components"
+    FAILED="$FAILED $c"
+  fi
+done
+set -e
+
+# record intent even with failures — `update` replays are idempotent and converge
 if [ -z "$ARGS" ]; then save_selection; fi   # one-off component runs don't change the record
+
+if [ -n "$FAILED" ]; then
+  warn "components with errors:${FAILED} — fix above, then re-run: ./install.sh${FAILED}"
+  exit 1
+fi
 log "done."
