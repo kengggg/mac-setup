@@ -145,6 +145,10 @@ comp_ghostty() {
   # macOS; the native Zoom menu item is the Alacritty ToggleMaximized
   # equivalent). Applied at next Ghostty launch.
   defaults write com.mitchellh.ghostty NSUserKeyEquivalents -dict-add "Zoom" '@$m'
+  # Ctrl+Cmd+drag anywhere in a window to move it — Ghostty's hidden
+  # titlebar (macos-titlebar-style = hidden) leaves nothing to grab.
+  # Global setting; apps pick it up on next launch.
+  defaults write -g NSWindowShouldDragOnGesture -bool true
 }
 
 comp_nvim() {
