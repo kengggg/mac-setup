@@ -280,6 +280,19 @@ require("lazy").setup({
   { "windwp/nvim-autopairs", event = "InsertEnter", opts = {} },
 
   -- In-buffer markdown rendering (no browser; uses the treesitter parser) ------
+  -- Inline images via the kitty graphics protocol (Ghostty; needs
+  -- kitty_graphics = true in herdr's config when running inside herdr).
+  -- Renders opened image files + images/math in markdown. Uses `magick`
+  -- (imagemagick, installed by comp_nvim) for non-PNG formats.
+  {
+    "folke/snacks.nvim",
+    priority = 1000,
+    lazy = false,
+    opts = {
+      image = { enabled = true },
+    },
+  },
+
   {
     "MeanderingProgrammer/render-markdown.nvim",
     dependencies = { "nvim-treesitter/nvim-treesitter", "nvim-tree/nvim-web-devicons" },

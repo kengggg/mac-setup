@@ -153,7 +153,8 @@ comp_ghostty() {
 
 comp_nvim() {
   log "[nvim]"
-  brew_install neovim ripgrep fd fzf tree-sitter-cli node lazygit
+  # imagemagick: snacks.nvim image rendering (non-PNG conversion)
+  brew_install neovim ripgrep fd fzf tree-sitter-cli node lazygit imagemagick
   link config/nvim "$HOME/.config/nvim"
   provision_nvim
 }

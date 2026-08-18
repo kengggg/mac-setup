@@ -244,7 +244,9 @@ delivery = "system"
 # allow_nested = false
 # Experimental local Kitty graphics rendering for attached clients.
 # Requires a Kitty graphics-compatible outer terminal.
-# kitty_graphics = false
+# On: snacks.nvim renders images inside herdr panes (Ghostty is
+# kitty-graphics-capable). Experimental — turn off if panes glitch.
+kitty_graphics = true
 # Save recent pane screen history across full server restarts.
 pane_history = false
 # While prefix mode is active, temporarily switch the macOS host input
