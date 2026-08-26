@@ -154,7 +154,17 @@ comp_ghostty() {
 comp_nvim() {
   log "[nvim]"
   # imagemagick: snacks.nvim image rendering (non-PNG conversion)
-  brew_install neovim ripgrep fd fzf tree-sitter-cli node lazygit imagemagick
+  # mermaid-cli: mmdc, renders ```mermaid fences in markdown via snacks.image
+  brew_install neovim ripgrep fd fzf tree-sitter-cli node lazygit imagemagick mermaid-cli
+  # mermaid-cli's puppeteer needs a one-time headless-chrome download into
+  # ~/.cache/puppeteer (exact version pinned by its bundled puppeteer-core;
+  # without it mmdc fails with "Could not find chrome-headless-shell").
+  local mc ver
+  mc="$(brew --prefix)/opt/mermaid-cli/libexec/lib/node_modules/@mermaid-js/mermaid-cli/node_modules"
+  ver="$(node -p "require('$mc/puppeteer-core/lib/puppeteer/revisions.js').PUPPETEER_REVISIONS['chrome-headless-shell']" 2>/dev/null || true)"
+  if [ -n "$ver" ] && [ ! -d "$HOME/.cache/puppeteer/chrome-headless-shell/mac_arm-$ver" ]; then
+    node "$mc/.bin/browsers" install "chrome-headless-shell@$ver" --path "$HOME/.cache/puppeteer"
+  fi
   link config/nvim "$HOME/.config/nvim"
   provision_nvim
 }
