@@ -63,7 +63,9 @@ Brewfile). Everything is idempotent and backs up existing files to
 ./install.sh --mode full         # everything
 ./install.sh --mode partial      # component checklist
 ./install.sh ghostty nvim        # run specific components
-./install.sh update              # replay this machine's recorded selection
+./install.sh update              # git pull, then replay this machine's recorded selection
+./install.sh doctor              # read-only: are all managed links healthy? (+ git state)
+./install.sh relink              # repair links after moving the clone — no installs
 ```
 
 Mode runs record themselves to `~/.config/mac-setup/selection` (untracked,
@@ -106,13 +108,34 @@ anything new (packages, provisioning, components added to the repo later),
 replay the machine's recorded selection:
 
 ```sh
-cd ~/Workspaces/mac-setup && git pull && ./install.sh update
+~/.config/mac-setup/repo/install.sh update     # pulls first, then replays
 ```
 
 `update` re-resolves a recorded `full` mode at run time, so a component newly
 added to full gets installed automatically; partial runs replay their exact
 component list. Machines without a record yet are prompted once, then
 remembered. Everything is idempotent, so replaying is safe.
+
+### How links survive moves and upgrades
+
+Every machine has one pointer, `~/.config/mac-setup/repo → <clone>`, and every
+managed dotfile links *through* it (`~/.zshrc → ~/.config/mac-setup/repo/home/zshrc`).
+Every installer run, whatever was selected, first converges that scheme:
+re-points the pointer at the clone it runs from, adopts any managed link that
+is already ours (old direct links, links left dangling by a move), adds a
+one-line guard to `~/.zprofile` that speaks up if `~/.zshrc` ever dangles,
+and ends with `doctor`. Real files and other people's symlinks are never
+touched by that pass — creating a link stays gated by component selection.
+
+So a machine set up before the pointer existed needs nothing special: its next
+`./install.sh update` migrates it. And if you move the clone:
+
+```sh
+mv ~/Workspaces/mac-setup ~/Work/mac-setup && ~/Work/mac-setup/install.sh relink
+```
+
+`bootstrap.sh` honours the pointer too, so re-running the one-liner updates
+the clone wherever it lives instead of creating a second one.
 
 Or, if you know exactly what changed, run just that component:
 
@@ -153,12 +176,15 @@ the first run on a machine that already had a setup:
 | A cask upgrade fails, e.g. font "source … is not there" | Files were deleted outside brew. `brew uninstall --cask --force <name> && brew install --cask <name>`. Setup runs never upgrade, so this only bites manual `brew upgrade`. |
 | App Store apps missing after a run | By design — install manually while signed in; one-liners are at the bottom of the `Brewfile`. |
 | ⌃⌘-drag window moving doesn't work | The pref applies to apps launched after `./install.sh macos` ran — fully quit (⌘Q) and reopen the app. |
+| New terminals open with a bare `%` prompt, or print `mac-setup: ~/.zshrc is a broken link` | The clone moved (or was deleted) and the links dangle. From the clone's new location: `./install.sh relink`. `./install.sh doctor` shows exactly which links are affected. |
+| Ghostty opens a plain shell instead of herdr | herdr isn't on PATH (not installed, or brew broken); the window falls back to zsh on purpose. `./install.sh ghostty` installs it; `doctor` warns about it. |
 
 ## Notes
 
 - Apple Silicon only; assumes Homebrew at `/opt/homebrew`
-- `~/.zprofile` is untracked; `install.sh` writes the brew `shellenv` line
-- Symlinks point into this repo; don't move it without re-running the affected components
+- `~/.zprofile` is untracked; `install.sh` writes the brew `shellenv` line and the broken-`.zshrc` guard there
+- Symlinks go through `~/.config/mac-setup/repo`; moving the clone needs one `./install.sh relink` from its new home
+- `tests/link-layer.sh` exercises the link layer (pointer, adoption, moves, `doctor`, `update`'s pull, bootstrap) against a throwaway `$HOME` and a local bare remote — no brew, no network, nothing on the real machine
 - The lanna-tone theme's source of truth is [kengggg/lanna-tone-theme](https://github.com/kengggg/lanna-tone-theme). The ghostty copy here is synced with `./scripts/sync-theme.sh` — edit the theme repo, not the copy.
 - Ghostty renders Thai (U+0E00–U+0E7F) in Arundina Sans Mono via `font-codepoint-map`.
 - Ghostty auto-launches **herdr** (agent multiplexer, `ctrl+b` prefix). herdr's config is linked file-level (`~/.config/herdr` also holds runtime state); its in-app settings (`ctrl+b s`) write through the symlink, so TUI changes show up as git diffs here.
@@ -173,6 +199,7 @@ mac-setup/
 ├── install.sh                   # idempotent installer
 ├── scripts/nvim-provision.lua   # headless treesitter + Mason
 ├── scripts/sync-theme.sh        # pull lanna-tone from its canonical repo
+├── tests/link-layer.sh          # link-layer tests in a throwaway $HOME
 ├── claude/                      # statusline script -> ~/.claude
 ├── config/                      # -> ~/.config/{ghostty,herdr,nvim}
 └── home/                        # -> ~/.zshrc, ~/.p10k.zsh, ~/.vimrc

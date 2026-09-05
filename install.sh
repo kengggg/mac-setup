@@ -7,7 +7,9 @@
 #   ./install.sh --mode full      # everything
 #   ./install.sh --mode partial   # interactive component checklist
 #   ./install.sh ghostty nvim     # run specific components directly
-#   ./install.sh update           # re-run this machine's recorded selection (after git pull)
+#   ./install.sh update           # git pull, then re-run this machine's recorded selection
+#   ./install.sh doctor           # read-only health check of every managed link (+ git state)
+#   ./install.sh relink           # repair links after moving the clone (no installs, no brew)
 #
 # Components: ghostty  nvim  shell  devtools  agents  apps  macos
 # One-liner override:  MAC_SETUP_MODE=full /bin/bash -c "$(curl -fsSL …/bootstrap.sh)"
@@ -24,6 +26,10 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TS="$(date +%Y%m%d%H%M%S)"
 LOCAL="$HOME/.zshrc.local"
 STATE_FILE="$HOME/.config/mac-setup/selection"
+# The machine's one pointer to its clone. Every managed dotfile links THROUGH
+# this, so moving the clone invalidates one symlink instead of all of them,
+# and any run from the new location repairs it (see ensure_repo_link).
+REPO_LINK="$HOME/.config/mac-setup/repo"
 
 log()  { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[!]\033[0m %s\n' "$*"; }
@@ -33,23 +39,154 @@ if [ "$(id -u)" -eq 0 ]; then
   exit 1
 fi
 
-# --- helpers ------------------------------------------------------------------
-
-# back up an existing real file/dir, then symlink
-link() {  # link <repo-relative-source> <absolute-destination>
-  local src="$REPO/$1" dest="$2"
-  mkdir -p "$(dirname "$dest")"
-  if [ -L "$dest" ]; then
-    ln -sfn "$src" "$dest"
-  elif [ -e "$dest" ]; then
-    mv "$dest" "$dest.bak-$TS"
-    warn "backed up $dest -> $dest.bak-$TS"
-    ln -sfn "$src" "$dest"
-  else
-    ln -sfn "$src" "$dest"
-  fi
-  log "linked $dest -> $src"
+# --- link layer -----------------------------------------------------------------
+# The manifest: every dotfile this repo owns. Columns: component, repo-relative
+# source, destination under $HOME. This is the ONLY place links are declared;
+# components call link_component, relink/doctor walk the whole table.
+links() {
+  cat <<'EOF'
+ghostty  config/ghostty                 .config/ghostty
+ghostty  config/herdr/config.toml       .config/herdr/config.toml
+nvim     config/nvim                    .config/nvim
+shell    home/zshrc                     .zshrc
+shell    home/p10k.zsh                  .p10k.zsh
+shell    home/vimrc                     .vimrc
+agents   claude/statusline-command.sh   .claude/statusline-command.sh
+EOF
 }
+
+# point $REPO_LINK at the clone this script runs from; say so if it moved
+ensure_repo_link() {
+  mkdir -p "$(dirname "$REPO_LINK")"
+  if [ -L "$REPO_LINK" ]; then
+    local cur; cur="$(readlink "$REPO_LINK")"
+    if [ "$cur" != "$REPO" ]; then
+      ln -sfn "$REPO" "$REPO_LINK"
+      log "repo moved: $cur -> $REPO (updated $REPO_LINK)"
+    fi
+  elif [ -e "$REPO_LINK" ]; then
+    mv "$REPO_LINK" "$REPO_LINK.bak-$TS"
+    warn "backed up $REPO_LINK -> $REPO_LINK.bak-$TS"
+    ln -sfn "$REPO" "$REPO_LINK"
+  else
+    ln -sfn "$REPO" "$REPO_LINK"
+    log "repo pointer: $REPO_LINK -> $REPO"
+  fi
+}
+
+# A symlink is ours when its target ends with the manifest's repo-relative
+# path — true for links through the pointer AND for pre-pointer direct links
+# into any clone, wherever it lived. Real files and other people's links
+# never match.
+is_ours() {  # is_ours <dest> <repo-relative-source>
+  [ -L "$1" ] || return 1
+  case "$(readlink "$1")" in */"$2") return 0 ;; esac
+  return 1
+}
+
+# (re)point one link through the pointer; silent when already correct
+set_link() {  # set_link <repo-relative-source> <absolute-destination>
+  local want="$REPO_LINK/$1" dest="$2" verb="linked"
+  [ "$(readlink "$dest" 2>/dev/null)" = "$want" ] && return 0
+  [ -L "$dest" ] && verb="relinked"
+  mkdir -p "$(dirname "$dest")"
+  ln -sfn "$want" "$dest"
+  log "$verb $dest -> $want"
+}
+
+# Unconditional pass, run at the start of EVERY install: adopt each managed
+# link that is already ours (direct links from before the pointer existed,
+# links left dangling by a moved clone). Never creates a link, never touches a
+# real file or a foreign symlink — that stays gated by component selection.
+converge_links() {
+  local comp src dest
+  while read -r comp src dest; do
+    [ -n "$comp" ] || continue
+    if is_ours "$HOME/$dest" "$src"; then set_link "$src" "$HOME/$dest"; fi
+  done < <(links)
+  return 0
+}
+
+# Component-scoped: create the component's links, backing up any real file
+# to name.bak-<timestamp> first (an existing symlink is simply replaced).
+link_component() {  # link_component <component>
+  local comp src dest d
+  while read -r comp src dest; do
+    [ "$comp" = "$1" ] || continue
+    d="$HOME/$dest"
+    if [ -e "$d" ] && [ ! -L "$d" ]; then
+      mv "$d" "$d.bak-$TS"
+      warn "backed up $d -> $d.bak-$TS"
+    fi
+    set_link "$src" "$d"
+  done < <(links)
+  return 0
+}
+
+# ~/.zprofile is a real file (never a link), so it can speak up when ~/.zshrc
+# is a dead link — otherwise zsh silently starts with no config at all.
+# Inert on machines whose ~/.zshrc is a real file or healthy.
+ensure_zprofile_guard() {
+  ensure_block "$HOME/.zprofile" "# >>> mac-setup guard >>>" <<'EOF'
+# >>> mac-setup guard >>>
+if [ -L "$HOME/.zshrc" ] && [ ! -e "$HOME/.zshrc" ]; then
+  echo "mac-setup: ~/.zshrc is a broken link — the clone moved? (last known: $(readlink "$HOME/.config/mac-setup/repo" 2>/dev/null)). Run: <clone>/install.sh relink" >&2
+fi
+# <<< mac-setup guard <<<
+EOF
+}
+
+# Read-only health report. Exit 1 only for what relink can fix (a dead pointer,
+# a managed link that is broken or bypasses the pointer); foreign links, real
+# files and not-installed components are informational.
+doctor() {
+  local bad=0 comp src dest d t want
+  log "doctor"
+  if [ -x "$REPO_LINK/install.sh" ]; then
+    printf '    ok        repo pointer -> %s\n' "$(readlink "$REPO_LINK")"
+  else
+    printf '    BROKEN    repo pointer %s\n' "$REPO_LINK"; bad=1
+  fi
+  while read -r comp src dest; do
+    [ -n "$comp" ] || continue
+    d="$HOME/$dest"; want="$REPO_LINK/$src"
+    if [ -L "$d" ]; then
+      t="$(readlink "$d")"
+      if [ "$t" = "$want" ] && [ -e "$d" ]; then
+        printf '    ok        ~/%s\n' "$dest"
+      elif is_ours "$d" "$src" && [ -e "$d" ]; then
+        printf '    DIRECT    ~/%s -> %s (bypasses the repo pointer)\n' "$dest" "$t"; bad=1
+      elif is_ours "$d" "$src"; then
+        printf '    BROKEN    ~/%s -> %s\n' "$dest" "$t"; bad=1
+      else
+        printf '    foreign   ~/%s -> %s (not managed here)\n' "$dest" "$t"
+      fi
+    elif [ -e "$d" ]; then
+      printf '    unmanaged ~/%s (real file; ./install.sh %s would adopt it)\n' "$dest" "$comp"
+    else
+      printf '    absent    ~/%s (%s not installed on this machine)\n' "$dest" "$comp"
+    fi
+  done < <(links)
+
+  local dirty behind ahead counts
+  dirty="$(git -C "$REPO" status --porcelain 2>/dev/null | wc -l | tr -d ' ')"
+  [ "$dirty" = 0 ] || warn "clone has $dirty uncommitted change(s): git -C $REPO status"
+  counts="$(git -C "$REPO" rev-list --left-right --count '@{u}...HEAD' 2>/dev/null || true)"
+  if [ -n "$counts" ]; then
+    read -r behind ahead <<<"$counts"
+    [ "$behind" = 0 ] || warn "clone is $behind commit(s) behind upstream (as of the last fetch): ./install.sh update"
+    [ "$ahead" = 0 ]  || warn "clone is $ahead commit(s) ahead of upstream — push or reconcile"
+  fi
+  command -v herdr >/dev/null 2>&1 || warn "herdr not on PATH — Ghostty will fall back to plain zsh"
+
+  if [ "$bad" -ne 0 ]; then
+    warn "problems above are fixed by: $REPO/install.sh relink"
+    return 1
+  fi
+  log "doctor: all managed links healthy"
+}
+
+# --- helpers ------------------------------------------------------------------
 
 clone_if_absent() { [ -d "$2" ] || git clone --depth=1 "$1" "$2"; }
 
@@ -77,15 +214,16 @@ save_selection() {
   esac
 }
 
-# append a block to ~/.zshrc.local once, keyed by a unique marker (block on stdin)
-ensure_local_block() {  # ensure_local_block <marker>
-  local marker="$1" block
+# append a block to a file once, keyed by a unique marker (block on stdin)
+ensure_block() {  # ensure_block <file> <marker>
+  local file="$1" marker="$2" block
   block="$(cat)"
-  touch "$LOCAL"
-  grep -qF "$marker" "$LOCAL" && return 0
-  printf '\n%s\n' "$block" >> "$LOCAL"
-  log "added '$marker' to ~/.zshrc.local"
+  touch "$file"
+  grep -qF "$marker" "$file" && return 0
+  printf '\n%s\n' "$block" >> "$file"
+  log "added '$marker' to ${file/#$HOME/~}"
 }
+ensure_local_block() { ensure_block "$LOCAL" "$1"; }  # ~/.zshrc.local shorthand
 
 provision_nvim() {
   log "installing nvim plugins at locked versions (Lazy restore)"
@@ -136,11 +274,9 @@ comp_ghostty() {
     rm -rf "$tmp"
     log "installed Arundina Sans Mono -> ~/Library/Fonts"
   fi
-  link config/ghostty "$HOME/.config/ghostty"
-  # herdr keeps runtime state (sockets, logs, session.json) in ~/.config/herdr,
-  # so link only the config file, not the directory.
-  mkdir -p "$HOME/.config/herdr"
-  link config/herdr/config.toml "$HOME/.config/herdr/config.toml"
+  # (herdr keeps runtime state — sockets, logs, session.json — in
+  # ~/.config/herdr, so the manifest links only its config.toml, not the dir.)
+  link_component ghostty
   # Cmd+Shift+M -> Window > Zoom (Ghostty's toggle_maximize is a no-op on
   # macOS; the native Zoom menu item is the Alacritty ToggleMaximized
   # equivalent). Applied at next Ghostty launch.
@@ -165,7 +301,7 @@ comp_nvim() {
   if [ -n "$ver" ] && [ ! -d "$HOME/.cache/puppeteer/chrome-headless-shell/mac_arm-$ver" ]; then
     node "$mc/.bin/browsers" install "chrome-headless-shell@$ver" --path "$HOME/.cache/puppeteer"
   fi
-  link config/nvim "$HOME/.config/nvim"
+  link_component nvim
   provision_nvim
 }
 
@@ -183,9 +319,7 @@ comp_shell() {
   clone_if_absent https://github.com/zsh-users/zsh-autosuggestions         "$custom/plugins/zsh-autosuggestions"
   clone_if_absent https://github.com/zsh-users/zsh-syntax-highlighting.git  "$custom/plugins/zsh-syntax-highlighting"
   brew_install fzf eza font-meslo-lg-nerd-font
-  link home/zshrc    "$HOME/.zshrc"
-  link home/p10k.zsh "$HOME/.p10k.zsh"
-  link home/vimrc    "$HOME/.vimrc"
+  link_component shell
 
   # Machines with a two-account history can leave completion paths owned by
   # another user or group-writable; oh-my-zsh then prints a compaudit lecture
@@ -310,8 +444,7 @@ EOF
   sed -i '' '/# >>> grok installer >>>/,/# <<< grok installer <<</d' "$REPO/home/zshrc" 2>/dev/null || true
 
   # Claude Code statusline
-  mkdir -p "$HOME/.claude"
-  link claude/statusline-command.sh "$HOME/.claude/statusline-command.sh"
+  link_component agents
   # settings.json is Claude Code's own file — MERGE the statusLine key only,
   # never overwrite. Idempotent: skip if it already points at our script.
   local sj="$HOME/.claude/settings.json" cmd="bash ~/.claude/statusline-command.sh" tmp
@@ -439,21 +572,52 @@ choose_components() {  # sets COMPONENTS
   done
 }
 
+# tests/link-layer.sh sources this file for its functions; stop before main
+if [ -n "${MAC_SETUP_LIB:-}" ]; then return 0 2>/dev/null || exit 0; fi
+
 # --- main ---------------------------------------------------------------------
 MODE=""
 ARGS=""
 COMPONENTS=""
+VERB=""
+ORIG_ARGS=("$@")
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --mode)   MODE="${2:-}"; shift 2 ;;
     --mode=*) MODE="${1#*=}"; shift ;;
-    -h|--help) sed -n '2,19p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,21p' "$0"; exit 0 ;;
     update) MODE="update"; shift ;;
+    doctor|relink) VERB="$1"; shift ;;
     *) ARGS="$ARGS $1"; shift ;;
   esac
 done
 [ -z "$MODE" ] && MODE="${MAC_SETUP_MODE:-}"
+
+# update: pull first, then hand over to the pulled install.sh. Bash reads a
+# script as it runs, so the pull must not rewrite THIS process's file mid-flight
+# — exec the fresh copy (flagged so it doesn't pull again). A failed pull
+# (diverged clone, offline) warns and continues on the checked-out code.
+if [ "$MODE" = "update" ] && [ -z "${MAC_SETUP_PULLED:-}" ]; then
+  log "update: git pull --ff-only"
+  if git -C "$REPO" pull --ff-only; then
+    MAC_SETUP_PULLED=1 exec "$REPO/install.sh" "${ORIG_ARGS[@]}"
+  else
+    warn "pull failed — continuing with the code already checked out (git -C $REPO status)"
+  fi
+fi
+
+# doctor is read-only; everything else first converges the machine onto the
+# pointer scheme (idempotent, brew-free, independent of what was selected)
+if [ "$VERB" = "doctor" ]; then
+  if doctor; then exit 0; else exit 1; fi
+fi
+ensure_repo_link
+converge_links
+ensure_zprofile_guard
+if [ "$VERB" = "relink" ]; then
+  if doctor; then exit 0; else exit 1; fi
+fi
 
 # update: replay this machine's recorded selection (recorded by mode runs)
 if [ "$MODE" = "update" ]; then
@@ -517,4 +681,5 @@ if [ -n "$FAILED" ]; then
   warn "components with errors:${FAILED} — fix above, then re-run: ./install.sh${FAILED}"
   exit 1
 fi
+doctor || exit 1                             # a run that leaves a managed link broken is not "done"
 log "done."

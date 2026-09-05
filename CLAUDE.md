@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-Machine setup & resurrection for Apple Silicon Macs — a component-based installer plus the dotfiles it symlinks into place. There is no build, lint, or test suite; "development" means editing configs/installer and re-running the relevant component.
+Machine setup & resurrection for Apple Silicon Macs — a component-based installer plus the dotfiles it symlinks into place. There is no build or lint; "development" means editing configs/installer and re-running the relevant component. The one test suite is `tests/link-layer.sh` (bash, sandboxed `$HOME` + local bare remote, no brew/network) — run it after touching the link layer, `update`, `doctor` or `bootstrap.sh`, and add a case for any new link-layer behaviour.
 
 **Objective:** make a fresh machine — Keng's own or a second machine for someone else — reproduce this setup with one command, then stay in sync via git. Every machine uses the same model: clone + symlink + `git pull`.
 
@@ -21,8 +21,11 @@ The repo is public, so this works with no GitHub auth. Modes are `full` (everyth
 ./install.sh --mode full         # everything
 ./install.sh --mode partial      # component checklist
 ./install.sh ghostty agents      # run specific components (doesn't change the machine's record)
-./install.sh update              # after git pull: replay this machine's recorded selection
+./install.sh update              # git pull --ff-only, re-exec the pulled script, replay the recorded selection
+./install.sh doctor              # read-only health check: pointer, every managed link, git state, herdr
+./install.sh relink              # after moving the clone: fix the pointer + adopt links, no installs
 ./scripts/sync-theme.sh          # pull the lanna-tone theme copy from the canonical theme repo
+./tests/link-layer.sh            # link-layer tests (sandboxed; nothing touches the real machine)
 ```
 
 Components: `ghostty` `nvim` `shell` `devtools` `agents` `apps` `macos` (`claude` is a deprecated alias for `agents`; the retired `alacritty`/`zellij` names warn-then-skip so old machine records keep replaying). `agents` = Claude Code (native installer → `~/.local/bin`) + statusline, Codex CLI (brew cask), Grok CLI — deliberately separate from `devtools` (conda+nvm) so a second machine can take one without the other. Runs are recorded to `~/.config/mac-setup/selection` (untracked, per-machine): full by mode name (re-resolved at `update` time, so components later added to full get picked up), partial by exact component list. Records from the retired `minimal`/`select` modes re-prompt once.
@@ -33,7 +36,8 @@ Components: `ghostty` `nvim` `shell` `devtools` `agents` `apps` `macos` (`claude
 
 Core mechanics in `install.sh` that everything relies on:
 
-- **`link()`** symlinks a repo path into `$HOME`, backing up any existing real file to `name.bak-<timestamp>` first. Because configs are symlinks, editing `~/.config/ghostty/...` edits this repo's working tree — live-machine tweaks show up as git diffs here, and config-only changes need no reinstall on other machines (just commit/push, `git pull` there).
+- **The link layer** (`links` manifest → `ensure_repo_link`, `converge_links`, `link_component`, `doctor`). Every machine has one pointer `~/.config/mac-setup/repo → <clone>`, and every managed dotfile links *through* it, so moving the clone invalidates one symlink, not all of them. The manifest (`links()`, columns: component, repo-relative source, destination under `$HOME`) is the only place links are declared. Every run — any verb except `doctor`, any selection — first re-points the pointer at the clone it runs from, adopts every managed link that is already ours (a symlink whose target ends with the manifest's repo-relative path: pre-pointer direct links, links dangling after a move), writes the `~/.zprofile` guard, and ends with `doctor`. That pass never creates a link and never touches a real file or a foreign symlink; `link_component <comp>` does the creating (backing up a real file to `name.bak-<timestamp>`) and only runs when its component is selected. There is no schema version and no migration step: old-scheme machines, moved clones and fresh machines all converge through the same code. Because configs are symlinks, editing `~/.config/ghostty/...` edits this repo's working tree — live-machine tweaks show up as git diffs here, and config-only changes need no reinstall on other machines (just commit/push, `update` there).
+- **`update` pulls, then re-execs.** Bash reads a script incrementally, so `git pull` must not rewrite the running `install.sh`; `update` pulls first and `exec`s the fresh file with `MAC_SETUP_PULLED=1`. A failed pull (diverged clone, offline) warns and continues on the checked-out code. `doctor` and `relink` never need brew and run before `bootstrap_homebrew`.
 - **Idempotency is a hard invariant.** Every component must be safely re-runnable: `brew_install` skips installed packages, `clone_if_absent`, `ensure_local_block` appends to `~/.zshrc.local` once keyed by a marker comment. Keep this property when editing components.
 - **Failure isolation.** Each component runs in its own `set -e` subshell: it stops at its first internal error, but the run continues, collects failures, and ends with "components with errors: … — re-run: ./install.sh …" (exit 1). Only `bootstrap_homebrew` is fail-fast — everything needs brew, and it pre-checks that `/opt/homebrew` is writable by the current user (printing the `sudo chown` fix if not).
 - **`~/.zshrc.local`** (untracked, sourced at the end of the tracked `.zshrc`) is where all machine-specific state goes: conda/nvm/grok init blocks, secrets, work paths. The tracked `.zshrc` must stay portable across machines and people.
@@ -49,13 +53,14 @@ Core mechanics in `install.sh` that everything relies on:
 - **grok's installer appends to `~/.zshrc`** (our symlinked tracked file); `comp_agents` strips that block back out of the repo copy so the canonical init lives only in `~/.zshrc.local`. Watch for similar installer pollution of tracked dotfiles — it shows up as an uncommitted diff on `home/zshrc`.
 - **Agent configs stay per-machine.** `~/.codex/config.toml`, Claude/Codex/Grok credentials, and sign-ins are deliberately NOT tracked — the repo is public. Only the statusline script and `statusLine` settings key are shared.
 - **`comp_shell` auto-fixes compaudit findings** (two-account machines leave completion paths owned by another user): flagged symlinks in user-writable dirs are replaced with owned copies. `sudo chown` cannot fix these — macOS App Management blocks writes into other apps' bundles, even for root.
-- **Ghostty is the only terminal.** It maps Thai (U+0E00–U+0E7F) to Arundina Sans Mono via `font-codepoint-map`, auto-launches herdr, and pairs stock TokyoNight themes with macOS appearance; lanna-tone survives only as the revert copy in `config/ghostty/themes/`.
+- **Ghostty is the only terminal.** It maps Thai (U+0E00–U+0E7F) to Arundina Sans Mono via `font-codepoint-map`, auto-launches herdr (falling back to a plain login zsh when herdr isn't on PATH, so a missing multiplexer never kills the window), and pairs stock TokyoNight themes with macOS appearance; lanna-tone survives only as the revert copy in `config/ghostty/themes/`.
+- **`bootstrap.sh` honours the repo pointer.** `MAC_SETUP_DEST` wins, then `~/.config/mac-setup/repo`'s target, then `~/Workspaces/mac-setup` for a fresh machine — re-running the one-liner never makes a second clone on a machine that keeps its clone elsewhere.
 - Modes are exactly `full` and `partial`; the old `minimal`/`select` names were removed with no aliases. The old terminal-only preset lives on only as a documented `MAC_SETUP_COMPONENTS="ghostty nvim"` example.
 
 ## Adding things
 
 - **App**: `cask "name", args: { adopt: true }` in `Brewfile`, then `./install.sh apps`
-- **Dotfile**: add the file under `config/` or `home/`, add a `link` line in the relevant `comp_*` function, re-run that component
+- **Dotfile**: add the file under `config/` or `home/`, add a row to the `links()` manifest in `install.sh` (component, source, destination), re-run that component. Nothing else — `relink`, `doctor` and the convergence pass read the manifest.
 - **New component**: `comp_<name>()` + a case entry in `run_component`, `choose_components`, and the full-mode preset; update the README tables
 - **macOS tweak**: edit `comp_macos`
 
