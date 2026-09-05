@@ -33,10 +33,12 @@ make_origin() {  # one bare remote per run, built from the working tree
   git clone -q --bare "$stage" "$ORIGIN"
 }
 
-sandbox() {  # sandbox <name>  -> sets SB, HOME, A
+sandbox() {  # sandbox <name>  -> sets SB, HOME, A, O
   make_origin
   SB="$TMPROOT/$1"; rm -rf "$SB"; mkdir -p "$SB/home"
-  git clone -q "$ORIGIN" "$SB/a"
+  O="$SB/origin.git"                          # per-case remote: tests that push don't see each other
+  git clone -q --bare "$ORIGIN" "$O"
+  git clone -q "$O" "$SB/a"
   A="$SB/a"
   export HOME="$SB/home"
 }
@@ -192,7 +194,7 @@ t_update_pulls_then_runs_new_code() {
   sandbox update
   # publish a new install.sh that proves it is the one running, then exits
   # before any component work
-  git clone -q "$ORIGIN" "$SB/pub"
+  git clone -q "$O" "$SB/pub"
   sed -i '' '1a\
 [ -n "${MAC_SETUP_TEST_MARK:-}" ] \&\& { echo PULLED-CODE-RAN; exit 0; }
 ' "$SB/pub/install.sh"
@@ -204,6 +206,23 @@ t_update_pulls_then_runs_new_code() {
   assert_eq "$rc" "0" &&
   assert_contains "$out" "PULLED-CODE-RAN" &&
   [ "$before" != "$after" ] || _fail "HEAD did not advance"
+}
+
+t_update_pulls_despite_rebase_config_and_dirty_lockfile() {
+  sandbox dirty
+  git clone -q "$O" "$SB/pub"
+  sed -i '' '1a\
+[ -n "${MAC_SETUP_TEST_MARK:-}" ] \&\& { echo PULLED-CODE-RAN; exit 0; }
+' "$SB/pub/install.sh"
+  git -C "$SB/pub" -c user.name=t -c user.email=t@t commit -qam "marker" && git -C "$SB/pub" push -q origin main
+  # what a real machine looks like: pull.rebase=true (set by some tool) and
+  # nvim has written through the lazy-lock.json symlink since the last pull
+  git -C "$A" config pull.rebase true
+  echo '{ "dirty": true }' >> "$A/config/nvim/lazy-lock.json"
+  local out; out="$(cd "$A" && MAC_SETUP_TEST_MARK=1 ./install.sh update 2>&1)"; local rc=$?
+  assert_eq "$rc" "0" || return 1
+  assert_contains "$out" "PULLED-CODE-RAN" || return 1
+  grep -q '"dirty": true' "$A/config/nvim/lazy-lock.json" || _fail "local lockfile edit was lost"
 }
 
 t_update_survives_pull_failure() {

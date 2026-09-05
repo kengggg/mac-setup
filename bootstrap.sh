@@ -40,7 +40,7 @@ fi
 # 2. Clone or update the repo.
 if [ -d "$DEST/.git" ]; then
   info "Updating existing checkout at $DEST"
-  git -C "$DEST" pull --ff-only
+  git -C "$DEST" pull --ff-only --no-rebase --autostash   # same flags as install.sh update
 else
   info "Cloning $REPO_URL -> $DEST"
   mkdir -p "$(dirname "$DEST")"

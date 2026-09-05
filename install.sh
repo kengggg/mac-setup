@@ -636,8 +636,11 @@ done
 # — exec the fresh copy (flagged so it doesn't pull again). A failed pull
 # (diverged clone, offline) warns and continues on the checked-out code.
 if [ "$MODE" = "update" ] && [ -z "${MAC_SETUP_PULLED:-}" ]; then
+  # --no-rebase: a pull.rebase=true config (tools set it) makes git refuse to
+  # pull over ANY unstaged change; --autostash: nvim writes lazy-lock.json
+  # through its symlink, so the clone is almost never clean.
   log "update: git pull --ff-only"
-  if git -C "$REPO" pull --ff-only; then
+  if git -C "$REPO" pull --ff-only --no-rebase --autostash; then
     MAC_SETUP_PULLED=1 exec "$REPO/install.sh" "${ORIG_ARGS[@]}"
   else
     warn "pull failed — continuing with the code already checked out (git -C $REPO status)"
