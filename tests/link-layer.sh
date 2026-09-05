@@ -223,6 +223,32 @@ t_bootstrap_honours_repo_pointer() {
   [ ! -e "$HOME/Workspaces/mac-setup" ] || _fail "bootstrap cloned a second copy"
 }
 
+t_relink_removes_dangling_retired_link() {
+  sandbox retired
+  mklink .config/zellij "$A/config/zellij"      # component retired: target no longer exists
+  "$A/install.sh" relink >/dev/null 2>&1
+  [ ! -L "$HOME/.config/zellij" ] && [ ! -e "$HOME/.config/zellij" ] || _fail "dangling retired link ~/.config/zellij still present"
+}
+
+t_relink_keeps_live_retired_path_and_doctor_flags_it() {
+  sandbox retired-live
+  mkdir -p "$HOME/.config/zellij"; : > "$HOME/.config/zellij/config.kdl"
+  "$A/install.sh" relink >/dev/null 2>&1
+  [ -f "$HOME/.config/zellij/config.kdl" ] || _fail "real ~/.config/zellij was removed" || return 1
+  local out; out="$("$A/install.sh" doctor 2>&1)"; local rc=$?
+  assert_eq "$rc" "0" &&
+  assert_contains "$out" "stale" &&
+  assert_contains "$out" ".config/zellij"
+}
+
+t_ghostty_component_links_alacritty_rescue() {
+  sandbox rescue
+  ( cd "$A" && MAC_SETUP_LIB=1 . ./install.sh && ensure_repo_link >/dev/null && link_component ghostty >/dev/null ) || return 1
+  assert_via_pointer .config/alacritty config/alacritty &&
+  assert_resolves .config/alacritty "$A/config/alacritty" &&
+  [ -f "$HOME/.config/alacritty/alacritty.toml" ] || _fail "alacritty.toml missing from the restored config"
+}
+
 # --- runner ---------------------------------------------------------------------
 run() {
   local t="$1"

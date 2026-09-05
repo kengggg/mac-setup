@@ -21,8 +21,9 @@ brew "mas"         # Mac App Store CLI — only for the MANUAL installs listed a
 # --- Fonts ---
 cask "font-meslo-lg-nerd-font"   # the Nerd Font Ghostty + Powerlevel10k use
 
-# --- Terminal emulator ---
-cask "ghostty", args: { adopt: true }   # per-script font mapping (Thai via Arundina)
+# --- Terminals ---
+cask "ghostty", args: { adopt: true }     # daily terminal: per-script font mapping (Thai via Arundina), auto-launches herdr
+cask "alacritty", args: { adopt: true }   # rescue terminal: plain login zsh, no multiplexer
 
 # --- GUI apps -----------------------------------------------------------------
 # Find cask names with:  brew search --cask <name>

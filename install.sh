@@ -11,7 +11,7 @@
 #   ./install.sh doctor           # read-only health check of every managed link (+ git state)
 #   ./install.sh relink           # repair links after moving the clone (no installs, no brew)
 #
-# Components: ghostty  nvim  shell  devtools  agents  apps  macos
+# Components: ghostty (Ghostty+herdr, Alacritty rescue)  nvim  shell  devtools  agents  apps  macos
 # One-liner override:  MAC_SETUP_MODE=full /bin/bash -c "$(curl -fsSL …/bootstrap.sh)"
 # Exact components (recorded like a partial run):
 #   MAC_SETUP_COMPONENTS="ghostty nvim agents" /bin/bash -c "$(curl -fsSL …/bootstrap.sh)"
@@ -47,11 +47,22 @@ links() {
   cat <<'EOF'
 ghostty  config/ghostty                 .config/ghostty
 ghostty  config/herdr/config.toml       .config/herdr/config.toml
+ghostty  config/alacritty               .config/alacritty
 nvim     config/nvim                    .config/nvim
 shell    home/zshrc                     .zshrc
 shell    home/p10k.zsh                  .p10k.zsh
 shell    home/vimrc                     .vimrc
 agents   claude/statusline-command.sh   .claude/statusline-command.sh
+EOF
+}
+
+# Destinations that retired components used to link. The convergence pass
+# deletes one only when it is a dangling symlink (the retired config dir is
+# gone from the repo, so that link can never resolve); a real directory or a
+# live link is someone's own and stays — doctor just calls it stale.
+retired() {
+  cat <<'EOF'
+.config/zellij
 EOF
 }
 
@@ -104,6 +115,13 @@ converge_links() {
     [ -n "$comp" ] || continue
     if is_ours "$HOME/$dest" "$src"; then set_link "$src" "$HOME/$dest"; fi
   done < <(links)
+  while read -r dest; do
+    [ -n "$dest" ] || continue
+    if [ -L "$HOME/$dest" ] && [ ! -e "$HOME/$dest" ]; then
+      rm "$HOME/$dest"
+      log "removed dangling link of retired component: ~/$dest"
+    fi
+  done < <(retired)
   return 0
 }
 
@@ -167,6 +185,15 @@ doctor() {
       printf '    absent    ~/%s (%s not installed on this machine)\n' "$dest" "$comp"
     fi
   done < <(links)
+  while read -r dest; do
+    [ -n "$dest" ] || continue
+    d="$HOME/$dest"
+    if [ -L "$d" ] && [ ! -e "$d" ]; then
+      printf '    BROKEN    ~/%s (retired component; relink removes it)\n' "$dest"; bad=1
+    elif [ -e "$d" ]; then
+      printf '    stale     ~/%s (retired component; yours to remove)\n' "$dest"
+    fi
+  done < <(retired)
 
   local dirty behind ahead counts
   dirty="$(git -C "$REPO" status --porcelain 2>/dev/null | wc -l | tr -d ' ')"
@@ -260,9 +287,12 @@ bootstrap_homebrew() {
 # --- components ---------------------------------------------------------------
 comp_ghostty() {
   log "[ghostty]"
-  # herdr: Ghostty's config auto-launches it — must be installed or Ghostty
-  # windows die on open.
-  brew_install ghostty font-meslo-lg-nerd-font herdr
+  # Ghostty + herdr is the daily terminal (Ghostty's config auto-launches
+  # herdr, falling back to plain zsh if it's missing). Alacritty is the
+  # rescue terminal: plain login zsh, no multiplexer, its own config — a way
+  # in when Ghostty, herdr or their configs misbehave. Installed together so
+  # the rescue is always there.
+  brew_install ghostty font-meslo-lg-nerd-font herdr alacritty
   # Arundina Sans Mono (Thai glyphs) has no brew cask; fetch TTFs from the
   # canonical TLWG release. Ghostty maps U+0E00-U+0E7F to it (see config).
   if ! ls "$HOME/Library/Fonts"/ArundinaSansMono* >/dev/null 2>&1; then
@@ -526,7 +556,8 @@ comp_macos() {
 run_component() {
   case "$1" in
     ghostty)   comp_ghostty ;;
-    alacritty|zellij) warn "the $1 component was removed; skipping" ;;
+    alacritty) warn "alacritty is now part of the ghostty component (rescue terminal); running ghostty"; comp_ghostty ;;
+    zellij)    warn "the zellij component was removed (herdr won the multiplexer trial); skipping" ;;
     nvim)      comp_nvim ;;
     shell)     comp_shell ;;
     devtools)  comp_devtools ;;
@@ -541,7 +572,7 @@ run_component() {
 # --- mode / component selection ----------------------------------------------
 choose_mode() {  # sets MODE
   printf '\nSelect install mode:\n'
-  printf '  1) full    — everything: ghostty+herdr, nvim, shell, dev tools, agent CLIs, apps\n'
+  printf '  1) full    — everything: terminals (ghostty+herdr, alacritty rescue), nvim, shell, dev tools, agent CLIs, apps, macOS tweaks\n'
   printf '  2) partial — choose components\n'
   printf 'Choice [1-2]: '
   local c; read -r c </dev/tty
@@ -554,7 +585,13 @@ choose_mode() {  # sets MODE
 
 choose_components() {  # sets COMPONENTS
   printf '\nSelect components by number (space-separated, e.g. "1 3"):\n'
-  printf '  1) ghostty\n  2) nvim\n  3) shell\n  4) devtools\n  5) agents\n  6) apps\n  7) macos\n'
+  printf '  1) ghostty   — Ghostty + herdr, and Alacritty as the plain rescue terminal\n'
+  printf '  2) nvim      — Neovim + its tools, provisioned\n'
+  printf '  3) shell     — oh-my-zsh, Powerlevel10k, plugins, .zshrc/.p10k.zsh/.vimrc\n'
+  printf '  4) devtools  — Miniforge (conda), nvm + Node LTS\n'
+  printf '  5) agents    — Claude Code + statusline, Codex, Grok\n'
+  printf '  6) apps      — GUI apps from the Brewfile\n'
+  printf '  7) macos     — system tweaks\n'
   printf 'Components: '
   local nums n; read -r nums </dev/tty
   COMPONENTS=""
