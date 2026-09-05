@@ -15,9 +15,19 @@
 set -euo pipefail
 
 REPO_URL="${MAC_SETUP_REPO:-https://github.com/kengggg/mac-setup.git}"
-DEST="${MAC_SETUP_DEST:-$HOME/Workspaces/mac-setup}"
 
 info() { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
+
+# Where the clone lives: MAC_SETUP_DEST wins; else the pointer install.sh
+# leaves at ~/.config/mac-setup/repo (so re-running this on a machine that
+# keeps its clone elsewhere updates THAT clone instead of making a second
+# one); else the default for a fresh machine.
+DEST="${MAC_SETUP_DEST:-}"
+if [ -z "$DEST" ] && [ -x "$HOME/.config/mac-setup/repo/install.sh" ]; then
+  DEST="$(readlink "$HOME/.config/mac-setup/repo")"
+  info "This machine keeps its clone at $DEST"
+fi
+DEST="${DEST:-$HOME/Workspaces/mac-setup}"
 
 # 1. Ensure git is available (Xcode Command Line Tools provide it).
 if ! xcode-select -p >/dev/null 2>&1; then
