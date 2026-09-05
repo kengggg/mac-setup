@@ -21,12 +21,13 @@ MAC_SETUP_COMPONENTS="ghostty nvim agents" /bin/bash -c "$(curl -fsSL …/bootst
 
 | Layer | Contents |
 |-------|----------|
-| Brew | `herdr` `neovim` `fzf` `fd` `ripgrep` `eza` `gh` `node`, MesloLGS Nerd Font, Ghostty, + apps in `Brewfile` |
+| Brew | `herdr` `neovim` `fzf` `fd` `ripgrep` `eza` `gh` `node`, MesloLGS Nerd Font, Ghostty, Alacritty, + apps in `Brewfile` |
 | Fonts | MesloLGS Nerd Font (Latin/code), Arundina Sans Mono (Thai, from [tlwg/fonts-arundina](https://github.com/tlwg/fonts-arundina)) |
 | Shell | oh-my-zsh, Powerlevel10k, `zsh-autosuggestions`, `zsh-syntax-highlighting` |
 | Dev tools | Miniforge (conda + mamba), nvm + Node LTS — init written to `~/.zshrc.local` |
 | Agent CLIs | Claude Code (+ statusline), Codex, Grok |
-| Configs | Ghostty, herdr, Neovim, `.zshrc`, `.p10k.zsh`, `.vimrc` |
+| Terminals | **Ghostty + herdr** for daily work; **Alacritty** as the rescue terminal — plain login zsh, no multiplexer, its own config, so there is always a way in when Ghostty or herdr misbehave |
+| Configs | Ghostty, herdr, Alacritty, Neovim, `.zshrc`, `.p10k.zsh`, `.vimrc` |
 | macOS | system tweaks (⌃⌘-drag to move any window) |
 
 Configs are symlinked from this repo; commit + push to sync across machines.
@@ -45,7 +46,7 @@ Brewfile). Everything is idempotent and backs up existing files to
 
 | Component | Installs + links |
 |-----------|------------------|
-| `ghostty` | ghostty + herdr + MesloLGS + Arundina Sans Mono (Thai) → `~/.config/ghostty` + `~/.config/herdr/config.toml`, ⇧⌘M Zoom binding |
+| `ghostty` | ghostty + herdr + MesloLGS + Arundina Sans Mono (Thai) → `~/.config/ghostty` + `~/.config/herdr/config.toml`, ⇧⌘M Zoom binding; plus alacritty (rescue terminal) → `~/.config/alacritty` |
 | `nvim` | neovim, ripgrep, fd, fzf, tree-sitter-cli, node → `~/.config/nvim` + provision |
 | `shell` | oh-my-zsh, p10k, zsh plugins, eza → `.zshrc`, `.p10k.zsh`, `.vimrc` |
 | `devtools` | Miniforge, nvm+Node → init in `~/.zshrc.local` |
@@ -141,7 +142,7 @@ Or, if you know exactly what changed, run just that component:
 
 | What changed | Then run |
 |--------------|----------|
-| configs only — ghostty, herdr, init.lua tweaks | nothing |
+| configs only — ghostty, herdr, alacritty, init.lua tweaks | nothing |
 | nvim plugins, parsers, LSP servers, nvim deps | `./install.sh nvim` |
 | Brewfile apps | `./install.sh apps` |
 | shell, dotfiles, omz plugins | `./install.sh shell` |
@@ -178,6 +179,8 @@ the first run on a machine that already had a setup:
 | ⌃⌘-drag window moving doesn't work | The pref applies to apps launched after `./install.sh macos` ran — fully quit (⌘Q) and reopen the app. |
 | New terminals open with a bare `%` prompt, or print `mac-setup: ~/.zshrc is a broken link` | The clone moved (or was deleted) and the links dangle. From the clone's new location: `./install.sh relink`. `./install.sh doctor` shows exactly which links are affected. |
 | Ghostty opens a plain shell instead of herdr | herdr isn't on PATH (not installed, or brew broken); the window falls back to zsh on purpose. `./install.sh ghostty` installs it; `doctor` warns about it. |
+| Ghostty won't open, or herdr is wedged | Open **Alacritty** — the rescue terminal: plain login zsh, no multiplexer, its own config, so it keeps working while you fix Ghostty/herdr (`./install.sh doctor` is a good first command there). |
+| `doctor` says `stale ~/.config/zellij` | Leftover from the retired zellij component that is a real directory or a live link, so the installer won't touch it. Remove it yourself (and `brew uninstall zellij` if you still have the formula); dangling leftovers are removed by `relink` automatically. |
 
 ## Notes
 
@@ -185,8 +188,9 @@ the first run on a machine that already had a setup:
 - `~/.zprofile` is untracked; `install.sh` writes the brew `shellenv` line and the broken-`.zshrc` guard there
 - Symlinks go through `~/.config/mac-setup/repo`; moving the clone needs one `./install.sh relink` from its new home
 - `tests/link-layer.sh` exercises the link layer (pointer, adoption, moves, `doctor`, `update`'s pull, bootstrap) against a throwaway `$HOME` and a local bare remote — no brew, no network, nothing on the real machine
-- The lanna-tone theme's source of truth is [kengggg/lanna-tone-theme](https://github.com/kengggg/lanna-tone-theme). The ghostty copy here is synced with `./scripts/sync-theme.sh` — edit the theme repo, not the copy.
-- Ghostty renders Thai (U+0E00–U+0E7F) in Arundina Sans Mono via `font-codepoint-map`.
+- The lanna-tone theme's source of truth is [kengggg/lanna-tone-theme](https://github.com/kengggg/lanna-tone-theme). The ghostty and alacritty copies here are synced with `./scripts/sync-theme.sh` — edit the theme repo, not the copies.
+- Ghostty renders Thai (U+0E00–U+0E7F) in Arundina Sans Mono via `font-codepoint-map`. Alacritty can't do per-script fonts, which is one reason it's the rescue terminal and not the daily one.
+- Alacritty stays deliberately plain: login zsh, no auto-launched program, lanna-tone theme, the same ⇧⏎ / F11 / ⇧⌘M bindings as Ghostty. Don't wire herdr (or anything else) into it.
 - Ghostty auto-launches **herdr** (agent multiplexer, `ctrl+b` prefix). herdr's config is linked file-level (`~/.config/herdr` also holds runtime state); its in-app settings (`ctrl+b s`) write through the symlink, so TUI changes show up as git diffs here.
 - Ghostty + herdr follow macOS appearance with stock themes (TokyoNight Day / TokyoNight); lanna-tone lives on as Ghostty's revert copy in `config/ghostty/themes/`.
 
@@ -201,6 +205,6 @@ mac-setup/
 ├── scripts/sync-theme.sh        # pull lanna-tone from its canonical repo
 ├── tests/link-layer.sh          # link-layer tests in a throwaway $HOME
 ├── claude/                      # statusline script -> ~/.claude
-├── config/                      # -> ~/.config/{ghostty,herdr,nvim}
+├── config/                      # -> ~/.config/{ghostty,herdr,alacritty,nvim}
 └── home/                        # -> ~/.zshrc, ~/.p10k.zsh, ~/.vimrc
 ```
