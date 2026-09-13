@@ -17,15 +17,26 @@ set -euo pipefail
 REPO_URL="${MAC_SETUP_REPO:-https://github.com/kengggg/mac-setup.git}"
 
 info() { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
+fail() { printf '\033[1;31m[x]\033[0m %s\n' "$*" >&2; exit 1; }
 
 # Where the clone lives: MAC_SETUP_DEST wins; else the pointer install.sh
 # leaves at ~/.config/mac-setup/repo (so re-running this on a machine that
 # keeps its clone elsewhere updates THAT clone instead of making a second
-# one); else the default for a fresh machine.
+# one); else the default for a fresh machine. A pointer that no longer leads
+# to a clone means the clone moved or was deleted — cloning the default path
+# anyway would leave two clones and every managed link dangling, so stop and
+# say what to do instead.
 DEST="${MAC_SETUP_DEST:-}"
-if [ -z "$DEST" ] && [ -x "$HOME/.config/mac-setup/repo/install.sh" ]; then
+if [ -z "$DEST" ] && [ -L "$HOME/.config/mac-setup/repo" ]; then
   DEST="$(readlink "$HOME/.config/mac-setup/repo")"
-  info "This machine keeps its clone at $DEST"
+  if [ -x "$DEST/install.sh" ]; then
+    info "This machine keeps its clone at $DEST"
+  else
+    fail "the repo pointer ~/.config/mac-setup/repo -> $DEST no longer leads to a clone.
+    - clone moved?   run ./install.sh relink from its new location, then re-run this
+    - clone deleted? rm ~/.config/mac-setup/repo and re-run this to clone fresh
+    - or set MAC_SETUP_DEST=/path/to/clone to override"
+  fi
 fi
 DEST="${DEST:-$HOME/Workspaces/mac-setup}"
 
