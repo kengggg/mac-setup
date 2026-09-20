@@ -115,7 +115,7 @@ require("lazy").setup({
       local have = {}
       for _, l in ipairs(nts.get_installed()) do have[l] = true end
       local missing = vim.tbl_filter(function(l) return not have[l] end, want)
-      if #missing > 0 then nts.install(missing) end
+      if not PROVISION and #missing > 0 then nts.install(missing) end
 
       vim.api.nvim_create_autocmd("FileType", {
         callback = function(ev)
@@ -322,6 +322,7 @@ require("lazy").setup({
     end,
   },
 }, {
+  install = { missing = not PROVISION },
   ui = { border = "rounded" },
   checker = { enabled = false },  -- don't auto-check for plugin updates
 })

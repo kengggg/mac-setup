@@ -19,6 +19,54 @@ Different names give independent workspaces, tabs, and panes. Reusing the
 same name attaches to the same session; bare `herdr` uses `default`.
 Press `Ctrl b`, then `q` to detach back to zsh without stopping your work.
 
+## Session picker (`hs`)
+
+Open a fresh zsh after updating, or run `source ~/.zshrc` in your outer shell.
+Then use:
+
+```sh
+hs                 # numbered session list, plus New and Cancel
+hs work            # start or attach to work directly
+```
+
+The list shows running/stopped state. Select a number to attach; choose `n`
+and enter a name to create a session, or `q` to cancel. Reusing an existing
+name attaches to it. The picker never stops or deletes sessions. Detach from
+herdr first; `hs` refuses to start a nested client inside a herdr pane.
+
+`hs` comes from the `shell` component. If you only installed `ghostty`, run
+`bash ~/.config/mac-setup/repo/scripts/herdr-session.sh` instead. Both paths
+need herdr and jq, installed by `./install.sh ghostty`.
+
+## Reattach after detaching
+
+Open a Ghostty window on the same Mac and run these commands at the zsh
+prompt (outside herdr):
+
+```sh
+herdr session list          # find the session name
+herdr session attach work   # replace work with the name from the list
+```
+
+`herdr --session work` is another way to attach to `work`. Use the exact
+existing name to return to your running panes and agents. A detached session
+can still show as `running`: its background server continues without a window.
+
+If you originally started herdr without a name, your session is `default`:
+
+```sh
+herdr                      # reattach default
+# Equivalent:
+herdr session attach default
+```
+
+For example: run `herdr --session work`, start your tools, press `Ctrl b`
+then `q` to detach, and later run `herdr session attach work` to return.
+Detaching leaves processes running; stopping the session or rebooting the
+Mac ends those processes, so attaching afterward is not the same as resuming
+a still-running detached session. Attaching to a session already displayed
+in another window shares that session rather than creating an independent one.
+
 ## Sessions and independent windows
 
 Before this change, Ghostty automatically ran bare `herdr` in every window,

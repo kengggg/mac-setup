@@ -16,6 +16,7 @@ brew "eza"         # modern ls (aliased in .zshrc)
 # (git comes from Xcode Command Line Tools — a prerequisite, installed before this runs)
 brew "gh"          # GitHub CLI
 brew "node"        # runtime for some LSP servers (pyright, ts_ls)
+brew "deno"        # builds peek.nvim's Markdown preview server
 brew "mas"         # Mac App Store CLI — only for the MANUAL installs listed at the bottom
 
 # --- Fonts ---

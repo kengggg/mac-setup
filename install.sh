@@ -8,7 +8,8 @@
 #   ./install.sh --mode partial   # interactive component checklist
 #   ./install.sh ghostty nvim     # run specific components directly
 #   ./install.sh update           # git pull, then re-run this machine's recorded selection
-#   ./install.sh doctor           # read-only health check of every managed link (+ git state)
+#   ./install.sh reapply          # replay the recorded selection without pulling
+#   ./install.sh doctor           # read-only links, selected tools, versions and configs
 #   ./install.sh relink           # repair links after moving the clone (no installs, no brew)
 #
 # Components: ghostty (Ghostty+herdr, Alacritty rescue)  nvim  shell  devtools  agents  apps  macos
@@ -26,6 +27,7 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TS="$(date +%Y%m%d%H%M%S)"
 LOCAL="$HOME/.zshrc.local"
 STATE_FILE="$HOME/.config/mac-setup/selection"
+FULL_COMPONENTS="ghostty nvim devtools shell agents apps macos"
 # The machine's one pointer to its clone. Every managed dotfile links THROUGH
 # this, so moving the clone invalidates one symlink instead of all of them,
 # and any run from the new location repairs it (see ensure_repo_link).
@@ -154,9 +156,8 @@ fi
 EOF
 }
 
-# Read-only health report. Exit 1 only for what relink can fix (a dead pointer,
-# a managed link that is broken or bypasses the pointer); foreign links, real
-# files and not-installed components are informational.
+# Read-only link and selected-component health report. `doctor links` keeps
+# relink brew-free. Full doctor also checks dependencies, versions and configs.
 doctor() {
   local bad=0 comp src dest d t want
   log "doctor"
@@ -204,13 +205,16 @@ doctor() {
     [ "$behind" = 0 ] || warn "clone is $behind commit(s) behind upstream (as of the last fetch): ./install.sh update"
     [ "$ahead" = 0 ]  || warn "clone is $ahead commit(s) ahead of upstream — push or reconcile"
   fi
-  command -v herdr >/dev/null 2>&1 || warn "herdr not on PATH — run ./install.sh ghostty to install it for manual use"
 
   if [ "$bad" -ne 0 ]; then
     warn "problems above are fixed by: $REPO/install.sh relink"
-    return 1
+  else
+    log "doctor: all managed links healthy"
   fi
-  log "doctor: all managed links healthy"
+  if [ "${1:-}" != links ]; then
+    doctor_environment || bad=1
+  fi
+  return "$bad"
 }
 
 # --- helpers ------------------------------------------------------------------
@@ -241,23 +245,15 @@ save_selection() {
   esac
 }
 
-# append a block to a file once, keyed by a unique marker (block on stdin)
-ensure_block() {  # ensure_block <file> <marker>
-  local file="$1" marker="$2" block
-  block="$(cat)"
-  touch "$file"
-  grep -qF "$marker" "$file" && return 0
-  printf '\n%s\n' "$block" >> "$file"
-  log "added '$marker' to ${file/#$HOME/~}"
-}
-ensure_local_block() { ensure_block "$LOCAL" "$1"; }  # ~/.zshrc.local shorthand
+# Installer-owned blocks and read-only environment checks.
+source "$REPO/scripts/managed-block.sh"
+source "$REPO/scripts/doctor.sh"
+ensure_local_block() { ensure_block "$LOCAL" "$1"; }
 
 provision_nvim() {
-  log "installing nvim plugins at locked versions (Lazy restore)"
-  nvim --headless "+Lazy! restore" +qa || true
-  log "provisioning treesitter parsers + Mason servers (this can take a while)"
-  MAC_SETUP_PROVISION=1 nvim --headless -c "luafile $REPO/scripts/nvim-provision.lua" -c "qa!" || true
-  echo   # the provision script's last write has no trailing newline
+  log "provisioning locked plugins, parsers and language tools (this can take a while)"
+  MAC_SETUP_PROVISION=1 MAC_SETUP_REPO_PATH="$REPO" nvim --headless \
+    -c 'lua dofile(vim.env.MAC_SETUP_REPO_PATH .. "/scripts/nvim-provision.lua")'
 }
 
 # --- bootstrap (always runs first; everything needs Homebrew) -----------------
@@ -292,7 +288,7 @@ comp_ghostty() {
   # rescue terminal: plain login zsh, no multiplexer, its own config — a way
   # in when Ghostty, herdr or their configs misbehave. Installed together so
   # the rescue is always there.
-  brew_install ghostty font-meslo-lg-nerd-font herdr
+  brew_install ghostty font-meslo-lg-nerd-font herdr jq
   # The alacritty cask comes and goes upstream (disabled 2026-09: release
   # fails Gatekeeper), and a manual install isn't brew-listed — so probe
   # /Applications first, and let a failed install warn, not abort: a missing
@@ -329,7 +325,7 @@ comp_nvim() {
   log "[nvim]"
   # imagemagick: snacks.nvim image rendering (non-PNG conversion)
   # mermaid-cli: mmdc, renders ```mermaid fences in markdown via snacks.image
-  brew_install neovim ripgrep fd fzf tree-sitter-cli node lazygit imagemagick mermaid-cli
+  brew_install neovim ripgrep fd fzf tree-sitter-cli node deno lazygit imagemagick mermaid-cli
   # mermaid-cli's puppeteer needs a one-time headless-chrome download into
   # ~/.cache/puppeteer (exact version pinned by its bundled puppeteer-core;
   # without it mmdc fails with "Could not find chrome-headless-shell").
@@ -434,10 +430,13 @@ EOF
     log "installing nvm"; brew install nvm
   fi
   mkdir -p "$HOME/.nvm"
-  ensure_local_block "export NVM_DIR=" <<'EOF'
+  migrate_legacy_nvm
+  ensure_local_block "# >>> mac-setup nvm >>>" <<'EOF'
+# >>> mac-setup nvm >>>
 export NVM_DIR="$HOME/.nvm"
 [ -s "$HOME/.nvm/nvm.sh" ] && \. "$HOME/.nvm/nvm.sh"
 [ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"
+# <<< mac-setup nvm <<<
 EOF
   export NVM_DIR="$HOME/.nvm"
   if [ -s "$HOME/.nvm/nvm.sh" ]; then . "$HOME/.nvm/nvm.sh"
@@ -555,11 +554,12 @@ EOF
   # --no-upgrade: converge on missing packages only — upgrading what's already
   # installed is `brew upgrade`'s job, and a broken upgrade of an unrelated
   # cask (seen: a font cask whose files were deleted outside brew) must not
-  # kill a setup run. Bundle errors are reported but non-fatal for the same
-  # reason: one bad app shouldn't abort the remaining components.
+  # abort other components. Bundle errors fail this component and appear in
+  # the final retry summary while the rest of the run continues.
   # (App Store apps are deliberately NOT installed — see the Brewfile.)
   if ! HOMEBREW_BUNDLE_CASK_SKIP="${skip# }" brew bundle install --no-upgrade --file="$REPO/Brewfile"; then
     warn "brew bundle finished with errors (see above) — fix and re-run: ./install.sh apps"
+    return 1
   fi
 }
 
@@ -628,6 +628,28 @@ choose_components() {  # sets COMPONENTS
   done
 }
 
+apply_components() {
+  # One failing component must not abort the rest of the run. Each component
+  # executes in a subshell with its own set -e (so it still stops at its first
+  # internal error); failures are collected and summarized at the end.
+  FAILED=""
+  set +e
+  for c in $COMPONENTS; do
+    ( set -e; run_component "$c" )
+    if [ $? -ne 0 ]; then
+      warn "[$c] failed — continuing with the remaining components"
+      FAILED="$FAILED $c"
+    fi
+  done
+  set -e
+
+  if [ -n "$FAILED" ]; then
+    warn "components with errors:${FAILED} — fix above, then re-run: ./install.sh${FAILED}"
+    return 1
+  fi
+  doctor || return 1                             # a run that leaves a managed link broken is not "done"
+}
+
 # tests/link-layer.sh sources this file for its functions; stop before main
 if [ -n "${MAC_SETUP_LIB:-}" ]; then return 0 2>/dev/null || exit 0; fi
 
@@ -636,33 +658,43 @@ MODE=""
 ARGS=""
 COMPONENTS=""
 VERB=""
+REAPPLY=0
 ORIG_ARGS=("$@")
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --mode)   MODE="${2:-}"; shift 2 ;;
     --mode=*) MODE="${1#*=}"; shift ;;
-    -h|--help) sed -n '2,21p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,22p' "$0"; exit 0 ;;
     update) MODE="update"; shift ;;
+    reapply) MODE="update"; REAPPLY=1; shift ;;
     doctor|relink) VERB="$1"; shift ;;
     *) ARGS="$ARGS $1"; shift ;;
   esac
 done
 [ -z "$MODE" ] && MODE="${MAC_SETUP_MODE:-}"
 
-# update: pull first, then hand over to the pulled install.sh. Bash reads a
-# script as it runs, so the pull must not rewrite THIS process's file mid-flight
-# — exec the fresh copy (flagged so it doesn't pull again). A failed pull
-# (diverged clone, offline) warns and continues on the checked-out code.
-if [ "$MODE" = "update" ] && [ -z "${MAC_SETUP_PULLED:-}" ]; then
-  # --no-rebase: a pull.rebase=true config (tools set it) makes git refuse to
-  # pull over ANY unstaged change; --autostash: nvim writes lazy-lock.json
-  # through its symlink, so the clone is almost never clean.
-  log "update: git pull --ff-only"
-  if git -C "$REPO" pull --ff-only --no-rebase --autostash; then
-    MAC_SETUP_PULLED=1 exec "$REPO/install.sh" "${ORIG_ARGS[@]}"
+# Pull only for update; offline replay is an explicit command so failure cannot
+# look like a successful update. Refuse unresolved merge/autostash conflicts.
+if [ "$MODE" = "update" ]; then
+  repo_identity
+  if [ -n "$(git -C "$REPO" ls-files -u)" ]; then
+    warn "unresolved Git conflicts; resolve them before updating or reapplying"
+    exit 1
+  fi
+  if [ "$REAPPLY" = 1 ]; then
+    log "reapply: using existing checkout; no updates downloaded"
+  elif [ -z "${MAC_SETUP_PULLED:-}" ]; then
+    log "update: git pull --ff-only"
+    if git -C "$REPO" pull --ff-only --no-rebase --autostash; then
+      MAC_SETUP_PULLED=1 exec "$REPO/install.sh" "${ORIG_ARGS[@]}"
+    else
+      warn "pull failed — no components were applied; fix Git/network and retry update"
+      warn "to deliberately use the existing checkout offline: ./install.sh reapply"
+      exit 1
+    fi
   else
-    warn "pull failed — continuing with the code already checked out (git -C $REPO status)"
+    log "update: pull succeeded; applying the checkout reported above"
   fi
 fi
 
@@ -675,7 +707,7 @@ ensure_repo_link
 converge_links
 ensure_zprofile_guard
 if [ "$VERB" = "relink" ]; then
-  if doctor; then exit 0; else exit 1; fi
+  if doctor links; then exit 0; else exit 1; fi
 fi
 
 # update: replay this machine's recorded selection (recorded by mode runs)
@@ -704,7 +736,7 @@ elif [ -z "$COMPONENTS" ]; then            # may already be set by `update` repl
   else
     [ -z "$MODE" ] && choose_mode          # no mode given -> interactive menu
     case "$MODE" in
-      full)    COMPONENTS="ghostty nvim devtools shell agents apps macos" ;;
+      full)    COMPONENTS="$FULL_COMPONENTS" ;;
       partial) choose_components ;;
       *) echo "unknown mode: $MODE (use full|partial|update)" >&2; exit 1 ;;
     esac
@@ -719,26 +751,13 @@ fi
 log "components:${COMPONENTS}"
 bootstrap_homebrew                           # fail-fast: everything needs brew
 
-# One failing component must not abort the rest of the run. Each component
-# executes in a subshell with its own set -e (so it still stops at its first
-# internal error); failures are collected and summarized at the end.
-FAILED=""
-set +e
-for c in $COMPONENTS; do
-  ( set -e; run_component "$c" )
-  if [ $? -ne 0 ]; then
-    warn "[$c] failed — continuing with the remaining components"
-    FAILED="$FAILED $c"
-  fi
-done
-set -e
-
-# record intent even with failures — `update` replays are idempotent and converge
-if [ -z "$ARGS" ]; then save_selection; fi   # one-off component runs don't change the record
-
-if [ -n "$FAILED" ]; then
-  warn "components with errors:${FAILED} — fix above, then re-run: ./install.sh${FAILED}"
-  exit 1
+# Record intent even if some components fail; a later update retries them.
+if [ -z "$ARGS" ]; then save_selection; fi
+apply_components
+if [ "${MAC_SETUP_PULLED:-}" = 1 ]; then
+  log "update complete: pulled and applied selected components"
+elif [ "$REAPPLY" = 1 ]; then
+  log "reapply complete: existing checkout applied; no updates downloaded"
+else
+  log "done."
 fi
-doctor || exit 1                             # a run that leaves a managed link broken is not "done"
-log "done."
