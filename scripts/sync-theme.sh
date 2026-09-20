@@ -12,7 +12,7 @@
 
 set -euo pipefail
 RAW="https://raw.githubusercontent.com/kengggg/lanna-tone-theme/main/themes"
-REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 
 log() { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
 

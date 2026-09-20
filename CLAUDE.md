@@ -70,6 +70,7 @@ The README's "Updating other machines" table maps change types to the component 
 
 ## Diagnostic and session helpers
 
+- Always resolve the checkout with `pwd -P` before managing the repo pointer. Both `cd ~/.config/mac-setup/repo && ./install.sh update` and invoking the script through the pointer must preserve the physical clone target. Neovim's provisioning launcher must exit nonzero if its Lua script cannot load or returns without explicitly completing.
 - `scripts/doctor.sh`: read-only selected-component checks, local versions/paths, bounded probes, config syntax. Report unavailable validations and non-brew-managed GUI apps explicitly; do not silently call them verified.
 - `scripts/managed-block.sh`: preserve user text and file modes; reject malformed blocks before writing; do not broaden legacy nvm adoption heuristics.
 - `scripts/herdr-session.sh`: explicit numbered picker exposed as `hs` by the shared zshrc; jq dependency belongs to ghostty. It must never auto-launch, stop/delete a session, or nest within a herdr pane.

@@ -169,6 +169,21 @@ config and use the terminal palette with automatic theme switching disabled.
 
 ### How links survive moves and upgrades
 
+The installer resolves the physical checkout directory even when launched
+through `~/.config/mac-setup/repo`, so the pointer cannot be rewritten to point
+to itself. If an older installer already created a loop (`Too many levels of
+symbolic links`), interrupt any waiting command and recover from the real clone:
+
+```sh
+cd /Users/keng/Work/mac-setup   # use your actual checkout location
+git pull --ff-only --no-rebase --autostash
+./install.sh relink
+./install.sh update
+```
+
+Pull the fix before running the installer again. `relink` restores the pointer
+without reinstalling anything; existing managed dotfiles resolve again.
+
 Every machine has one pointer, `~/.config/mac-setup/repo → <clone>`, and every
 managed dotfile links *through* it (`~/.zshrc → ~/.config/mac-setup/repo/home/zshrc`).
 Every installer run, whatever was selected, first converges that scheme:
