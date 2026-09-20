@@ -19,12 +19,40 @@ Different names give independent workspaces, tabs, and panes. Reusing the
 same name attaches to the same session; bare `herdr` uses `default`.
 Press `Ctrl b`, then `q` to detach back to zsh without stopping your work.
 
-## Session
+## Sessions and independent windows
+
+Before this change, Ghostty automatically ran bare `herdr` in every window,
+attaching them all to `default`. New windows now start plain login zsh.
+Your previous panes remain in `default`; run `herdr` to return to them.
+Creating a named session does not move existing panes into it.
+
+Run these commands at a shell prompt:
+
+| Command | Action |
+|---------|--------|
+| `herdr` | Start or reattach the shared `default` session |
+| `herdr --session work` | Start or reattach the named `work` session |
+| `herdr session attach work` | Alternate command to attach to `work` |
+| `herdr session list` | List this Mac's sessions and their status |
+| `herdr --session work agent list` | Inspect agents in `work` from another shell |
+| `herdr --session work server reload-config` | Reload the `work` server's config |
+| `herdr session stop work` | Stop `work` and its running panes/processes |
+| `herdr session delete work` | Delete the saved state of a stopped session |
+
+Session names and runtime state are local to each Mac. All sessions use the
+same shared herdr config. Use **detach** when you want to leave work running;
+**stop** ends its processes. After detaching, run another named-session
+command at the returned zsh prompt to switch sessions.
+
+The config now uses the terminal's Lanna Tone palette with automatic
+light/dark switching disabled. Use the in-app reload binding below to update
+an existing client's theme as well as its selected server's config.
+
+## Session keys
 
 | Key | Action |
 |-----|--------|
 | `Ctrl b` `q` | detach (server + agents keep running) |
-| `herdr` | launch / reattach (shell) |
 | `Ctrl b` `s` | settings TUI (theme, toasts, integrations) |
 | `Ctrl b` `Shift r` | reload config.toml |
 | `Ctrl b` `?` | show all keybindings |

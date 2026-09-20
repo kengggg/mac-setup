@@ -117,6 +117,46 @@ added to full gets installed automatically; partial runs replay their exact
 component list. Machines without a record yet are prompted once, then
 remembered. Everything is idempotent, so replaying is safe.
 
+### Ghostty and herdr: independent windows
+
+Previously, every Ghostty window automatically attached to herdr's shared
+`default` session, so multiple windows could show the same contents. Ghostty
+now opens a plain login zsh in each window. Start herdr only when wanted,
+using a different session name for each independent set of workspaces:
+
+```sh
+herdr --session work       # first window: start or reattach work
+herdr --session personal   # second window: separate workspaces, tabs, panes
+herdr session list         # list sessions on this Mac
+herdr                     # reattach your previous default session
+```
+
+The same name always selects the same session. Named sessions share the
+herdr configuration, but their workspaces, panes, and running processes are
+separate. Sessions stay on the Mac where they were started; Git syncs the
+configuration, not live sessions. Press `Ctrl+B`, release, then `Q` to detach
+back to zsh while the session keeps running. See the
+[herdr cheat sheet](docs/herdr-cheatsheet.md) for session management commands.
+
+To adopt this change on an existing Mac:
+
+```sh
+cd ~/.config/mac-setup/repo
+git switch main
+./install.sh update
+```
+
+`update` pulls the current branch, so switch to `main` first to receive merged
+changes. In Ghostty, press `Cmd+Shift+,` to reload the config, then `Cmd+N` to
+open a new plain-zsh window. Existing herdr panes and agents keep running;
+the update does not move them into named sessions. Run `herdr` in a new
+window to return to the old default session. Detaching from an older window
+that auto-launched herdr may close that window rather than return to zsh.
+
+Ghostty now uses fixed Lanna Tone colors, with no day/night switching. In an
+existing herdr client, press `Ctrl+B`, release, then `Shift+R` to reload its
+config and use the terminal palette with automatic theme switching disabled.
+
 ### How links survive moves and upgrades
 
 Every machine has one pointer, `~/.config/mac-setup/repo → <clone>`, and every
@@ -145,7 +185,7 @@ Or, if you know exactly what changed, run just that component:
 
 | What changed | Then run |
 |--------------|----------|
-| configs only — ghostty, herdr, alacritty, init.lua tweaks | nothing |
+| configs only — ghostty, herdr, alacritty, init.lua tweaks | no installer needed after pulling; reload the affected app's config or reopen it |
 | nvim plugins, parsers, LSP servers, nvim deps | `./install.sh nvim` |
 | Brewfile apps | `./install.sh apps` |
 | shell, dotfiles, omz plugins | `./install.sh shell` |
