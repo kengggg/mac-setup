@@ -204,7 +204,7 @@ doctor() {
     [ "$behind" = 0 ] || warn "clone is $behind commit(s) behind upstream (as of the last fetch): ./install.sh update"
     [ "$ahead" = 0 ]  || warn "clone is $ahead commit(s) ahead of upstream — push or reconcile"
   fi
-  command -v herdr >/dev/null 2>&1 || warn "herdr not on PATH — Ghostty will fall back to plain zsh"
+  command -v herdr >/dev/null 2>&1 || warn "herdr not on PATH — run ./install.sh ghostty to install it for manual use"
 
   if [ "$bad" -ne 0 ]; then
     warn "problems above are fixed by: $REPO/install.sh relink"
@@ -287,8 +287,8 @@ bootstrap_homebrew() {
 # --- components ---------------------------------------------------------------
 comp_ghostty() {
   log "[ghostty]"
-  # Ghostty + herdr is the daily terminal (Ghostty's config auto-launches
-  # herdr, falling back to plain zsh if it's missing). Alacritty is the
+  # Ghostty is the daily terminal: plain login zsh, with herdr sessions
+  # launched manually when wanted. Alacritty is the
   # rescue terminal: plain login zsh, no multiplexer, its own config — a way
   # in when Ghostty, herdr or their configs misbehave. Installed together so
   # the rescue is always there.

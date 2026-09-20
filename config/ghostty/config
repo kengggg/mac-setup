@@ -10,18 +10,16 @@ font-size   = 12
 # by install.sh); everything else stays MesloLGS.
 font-codepoint-map = U+0E00-U+0E7F=Arundina Sans Mono
 
-# Paired stock themes following macOS appearance (herdr mirrors via
-# auto_switch in config/herdr/config.toml). lanna-tone didn't sit well
-# with herdr's UI; its copy stays in themes/ for easy revert
-# (dark:lanna-tone).
-theme = light:TokyoNight Day,dark:TokyoNight
+# Fixed Lanna Tone palette, independent of macOS light/dark appearance.
+# Synced from kengggg/lanna-tone-theme with scripts/sync-theme.sh.
+theme = lanna-tone
 
-# --- Shell: auto-launch herdr ----------------------------------------------
-# Login zsh so brew tools are on PATH. Bare `herdr` launches/attaches THE
-# persistent session (workspaces inside it). If herdr is missing (not yet
-# installed, brew broken) fall back to a plain login shell instead of the
-# window dying on open — `./install.sh doctor` reports the missing tool.
-command = /bin/zsh --login -c "command -v herdr >/dev/null && exec herdr; exec zsh -l"
+# --- Shell -----------------------------------------------------------------
+# Each window opens an independent login zsh with brew tools on PATH.
+# Start herdr manually: `herdr --session work` or `herdr --session personal`.
+# Bare `herdr` reattaches the default session; using the same session in
+# multiple windows shares its contents.
+command = /bin/zsh --login
 
 # --- Window ----------------------------------------------------------------
 window-width  = 120

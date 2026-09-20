@@ -26,7 +26,7 @@ MAC_SETUP_COMPONENTS="ghostty nvim agents" /bin/bash -c "$(curl -fsSL …/bootst
 | Shell | oh-my-zsh, Powerlevel10k, `zsh-autosuggestions`, `zsh-syntax-highlighting` |
 | Dev tools | Miniforge (conda + mamba), nvm + Node LTS — init written to `~/.zshrc.local` |
 | Agent CLIs | Claude Code (+ statusline), Codex, Grok |
-| Terminals | **Ghostty + herdr** for daily work; **Alacritty** as the rescue terminal — plain login zsh, no multiplexer, its own config, so there is always a way in when Ghostty or herdr misbehave |
+| Terminals | **Ghostty** opens plain login zsh; launch **herdr** sessions manually when wanted. **Alacritty** is the rescue terminal — plain login zsh, its own config, so there is always a way in when Ghostty or herdr misbehave |
 | Configs | Ghostty, herdr, Alacritty, Neovim, `.zshrc`, `.p10k.zsh`, `.vimrc` |
 | macOS | system tweaks (⌃⌘-drag to move any window) |
 
@@ -117,6 +117,46 @@ added to full gets installed automatically; partial runs replay their exact
 component list. Machines without a record yet are prompted once, then
 remembered. Everything is idempotent, so replaying is safe.
 
+### Ghostty and herdr: independent windows
+
+Previously, every Ghostty window automatically attached to herdr's shared
+`default` session, so multiple windows could show the same contents. Ghostty
+now opens a plain login zsh in each window. Start herdr only when wanted,
+using a different session name for each independent set of workspaces:
+
+```sh
+herdr --session work       # first window: start or reattach work
+herdr --session personal   # second window: separate workspaces, tabs, panes
+herdr session list         # list sessions on this Mac
+herdr                     # reattach your previous default session
+```
+
+The same name always selects the same session. Named sessions share the
+herdr configuration, but their workspaces, panes, and running processes are
+separate. Sessions stay on the Mac where they were started; Git syncs the
+configuration, not live sessions. Press `Ctrl+B`, release, then `Q` to detach
+back to zsh while the session keeps running. See the
+[herdr cheat sheet](docs/herdr-cheatsheet.md) for session management commands.
+
+To adopt this change on an existing Mac:
+
+```sh
+cd ~/.config/mac-setup/repo
+git switch main
+./install.sh update
+```
+
+`update` pulls the current branch, so switch to `main` first to receive merged
+changes. In Ghostty, press `Cmd+Shift+,` to reload the config, then `Cmd+N` to
+open a new plain-zsh window. Existing herdr panes and agents keep running;
+the update does not move them into named sessions. Run `herdr` in a new
+window to return to the old default session. Detaching from an older window
+that auto-launched herdr may close that window rather than return to zsh.
+
+Ghostty now uses fixed Lanna Tone colors, with no day/night switching. In an
+existing herdr client, press `Ctrl+B`, release, then `Shift+R` to reload its
+config and use the terminal palette with automatic theme switching disabled.
+
 ### How links survive moves and upgrades
 
 Every machine has one pointer, `~/.config/mac-setup/repo → <clone>`, and every
@@ -145,7 +185,7 @@ Or, if you know exactly what changed, run just that component:
 
 | What changed | Then run |
 |--------------|----------|
-| configs only — ghostty, herdr, alacritty, init.lua tweaks | nothing |
+| configs only — ghostty, herdr, alacritty, init.lua tweaks | no installer needed after pulling; reload the affected app's config or reopen it |
 | nvim plugins, parsers, LSP servers, nvim deps | `./install.sh nvim` |
 | Brewfile apps | `./install.sh apps` |
 | shell, dotfiles, omz plugins | `./install.sh shell` |
@@ -181,7 +221,8 @@ the first run on a machine that already had a setup:
 | App Store apps missing after a run | By design — install manually while signed in; one-liners are at the bottom of the `Brewfile`. |
 | ⌃⌘-drag window moving doesn't work | The pref applies to apps launched after `./install.sh macos` ran — fully quit (⌘Q) and reopen the app. |
 | New terminals open with a bare `%` prompt, or print `mac-setup: ~/.zshrc is a broken link` | The clone moved (or was deleted) and the links dangle. From the clone's new location: `./install.sh relink`. `./install.sh doctor` shows exactly which links are affected. |
-| Ghostty opens a plain shell instead of herdr | herdr isn't on PATH (not installed, or brew broken); the window falls back to zsh on purpose. `./install.sh ghostty` installs it; `doctor` warns about it. |
+| Ghostty opens a plain shell instead of herdr | By design. Run `herdr --session work` to start or reattach a named session. |
+| Multiple Ghostty windows show the same herdr contents | They attached to the same session. Use different names, e.g. `herdr --session work` and `herdr --session personal`, for independent workspaces and panes. |
 | Ghostty won't open, or herdr is wedged | Open **Alacritty** — the rescue terminal: plain login zsh, no multiplexer, its own config, so it keeps working while you fix Ghostty/herdr (`./install.sh doctor` is a good first command there). |
 | `skipping alacritty: its cask is disabled in Homebrew` (and the ghostty component warns it can't install it) | Homebrew disabled the cask (2026-09: the release fails Gatekeeper), so brew can't install it on a machine that doesn't have it yet. Setup continues without the rescue terminal; install it manually from [Alacritty's releases](https://github.com/alacritty/alacritty/releases) — its config link is already in place. |
 | `doctor` says `stale ~/.config/zellij` | Leftover from the retired zellij component that is a real directory or a live link, so the installer won't touch it. Remove it yourself (and `brew uninstall zellij` if you still have the formula); dangling leftovers are removed by `relink` automatically. |
@@ -195,8 +236,8 @@ the first run on a machine that already had a setup:
 - The lanna-tone theme's source of truth is [kengggg/lanna-tone-theme](https://github.com/kengggg/lanna-tone-theme). The ghostty and alacritty copies here are synced with `./scripts/sync-theme.sh` — edit the theme repo, not the copies.
 - Ghostty renders Thai (U+0E00–U+0E7F) in Arundina Sans Mono via `font-codepoint-map`. Alacritty can't do per-script fonts, which is one reason it's the rescue terminal and not the daily one.
 - Alacritty stays deliberately plain: login zsh, no auto-launched program, lanna-tone theme, the same ⇧⏎ / F11 / ⇧⌘M bindings as Ghostty. Don't wire herdr (or anything else) into it.
-- Ghostty auto-launches **herdr** (agent multiplexer, `ctrl+b` prefix). herdr's config is linked file-level (`~/.config/herdr` also holds runtime state); its in-app settings (`ctrl+b s`) write through the symlink, so TUI changes show up as git diffs here.
-- Ghostty + herdr follow macOS appearance with stock themes (TokyoNight Day / TokyoNight); lanna-tone lives on as Ghostty's revert copy in `config/ghostty/themes/`.
+- Ghostty opens a plain login zsh in each window. Launch **herdr** manually with `herdr --session <name>`; `herdr session list` lists saved sessions, and `ctrl+b q` detaches back to the shell while panes keep running. Bare `herdr` uses the shared default session. herdr's config is linked file-level (`~/.config/herdr` also holds runtime state); its in-app settings (`ctrl+b s`) write through the symlink, so TUI changes show up as git diffs here.
+- Ghostty uses the fixed Lanna Tone theme, independent of macOS appearance. herdr uses the host terminal's palette (`name = "terminal"`, `auto_switch = false`); Alacritty also uses Lanna Tone. There is no automatic day/night theme switching.
 
 ## Layout
 
