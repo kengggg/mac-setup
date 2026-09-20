@@ -23,7 +23,9 @@
 
 set -euo pipefail
 
-REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Resolve directory symlinks before touching the pointer. A logical $PWD such
+# as ~/.config/mac-setup/repo would otherwise turn that pointer into a loop.
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 TS="$(date +%Y%m%d%H%M%S)"
 LOCAL="$HOME/.zshrc.local"
 STATE_FILE="$HOME/.config/mac-setup/selection"
@@ -70,6 +72,11 @@ EOF
 
 # point $REPO_LINK at the clone this script runs from; say so if it moved
 ensure_repo_link() {
+  if [ ! -L "$REPO_LINK" ] && [ -d "$REPO_LINK" ] &&
+     [ "$(cd "$REPO_LINK" && pwd -P)" = "$REPO" ]; then
+    warn "the checkout occupies the reserved repo pointer path; move it elsewhere, then run ./install.sh relink"
+    return 1
+  fi
   mkdir -p "$(dirname "$REPO_LINK")"
   if [ -L "$REPO_LINK" ]; then
     local cur; cur="$(readlink "$REPO_LINK")"
@@ -253,7 +260,8 @@ ensure_local_block() { ensure_block "$LOCAL" "$1"; }
 provision_nvim() {
   log "provisioning locked plugins, parsers and language tools (this can take a while)"
   MAC_SETUP_PROVISION=1 MAC_SETUP_REPO_PATH="$REPO" nvim --headless \
-    -c 'lua dofile(vim.env.MAC_SETUP_REPO_PATH .. "/scripts/nvim-provision.lua")'
+    -c 'lua local ok, err = xpcall(function() dofile(vim.env.MAC_SETUP_REPO_PATH .. "/scripts/nvim-provision.lua") end, debug.traceback); if not ok then io.stderr:write(tostring(err) .. "\n"); vim.cmd("cquit 1") end' \
+    -c 'cquit 1'
 }
 
 # --- bootstrap (always runs first; everything needs Homebrew) -----------------

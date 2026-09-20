@@ -13,8 +13,8 @@
 
 set -uo pipefail
 
-SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TMPROOT="${TMPDIR:-/tmp}"; TMPROOT="${TMPROOT%/}/mac-setup-tests.$$"
+SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+TMPROOT="$(cd "${TMPDIR:-/tmp}" && pwd -P)/mac-setup-tests.$$"
 PASS=0; FAIL=0; FAILED=""
 
 red()   { printf '\033[1;31m%s\033[0m\n' "$*"; }
@@ -104,6 +104,62 @@ t_relink_repairs_after_clone_moved() {
   assert_link_target .config/mac-setup/repo "$SB/b" &&
   assert_resolves .zshrc "$SB/b/home/zshrc" &&
   assert_resolves .config/ghostty "$SB/b/config/ghostty"
+}
+
+t_relink_from_logical_pointer_directory() {
+  sandbox logical-pointer
+  mklink .zshrc "$A/home/zshrc"
+  "$A/install.sh" relink >/dev/null 2>&1 || return 1
+  local out
+  out="$(cd "$HOME/.config/mac-setup/repo" && ./install.sh relink 2>&1)" || {
+    _fail "relink from pointer failed: $out"; return 1;
+  }
+  assert_resolves .config/mac-setup/repo "$A" &&
+  assert_resolves .zshrc "$A/home/zshrc"
+}
+
+t_relink_invoked_by_pointer_path() {
+  sandbox pointer-invocation
+  "$A/install.sh" relink >/dev/null 2>&1 || return 1
+  local out
+  out="$("$HOME/.config/mac-setup/repo/install.sh" relink 2>&1)" || {
+    _fail "pointer invocation failed: $out"; return 1;
+  }
+  assert_resolves .config/mac-setup/repo "$A"
+}
+
+t_update_from_pointer_keeps_real_checkout() {
+  sandbox pointer-update
+  mklink .zshrc "$A/home/zshrc"
+  "$A/install.sh" relink >/dev/null 2>&1 || return 1
+  # Exercise update's pull and re-exec, then take the brew-free relink path.
+  local out
+  out="$(cd "$HOME/.config/mac-setup/repo" && ./install.sh update relink 2>&1)" || {
+    _fail "update through pointer failed: $out"; return 1;
+  }
+  assert_contains "$out" "pull succeeded" &&
+  assert_resolves .config/mac-setup/repo "$A" &&
+  assert_resolves .zshrc "$A/home/zshrc"
+}
+
+t_relink_recovers_self_referencing_pointer() {
+  sandbox recursive-pointer
+  "$A/install.sh" relink >/dev/null 2>&1 || return 1
+  ln -sfn "$HOME/.config/mac-setup/repo" "$HOME/.config/mac-setup/repo"
+  "$A/install.sh" relink >/dev/null 2>&1 || return 1
+  assert_resolves .config/mac-setup/repo "$A"
+}
+
+t_relink_rejects_checkout_at_reserved_pointer_path() {
+  sandbox reserved-pointer
+  mkdir -p "$HOME/.config/mac-setup"
+  mv "$A" "$HOME/.config/mac-setup/repo"
+  local out rc=0
+  out="$("$HOME/.config/mac-setup/repo/install.sh" relink 2>&1)" || rc=$?
+  assert_eq "$rc" 1 &&
+  assert_contains "$out" "reserved repo pointer path" &&
+  [ ! -L "$HOME/.config/mac-setup/repo" ] &&
+  [ -d "$HOME/.config/mac-setup/repo/.git" ] || _fail "checkout was moved or replaced"
 }
 
 t_relink_leaves_real_files_alone() {

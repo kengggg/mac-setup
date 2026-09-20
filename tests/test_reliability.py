@@ -102,6 +102,28 @@ apply_components
         result = self.shell('provision_nvim')
         self.assertEqual(result.returncode, 9, result.stdout)
 
+    def test_nvim_loader_exits_on_missing_broken_or_incomplete_script(self):
+        real_nvim = shutil.which('nvim')
+        self.assertIsNotNone(real_nvim)
+        # Capture the real launch arguments, then run them in clean Neovim so
+        # this test exercises dofile/exit behavior without user plugins/network.
+        self.stub('nvim', 'printf "%s\\0" "$@" > "$HOME/nvim-args"')
+        result = self.shell('provision_nvim')
+        self.assertEqual(result.returncode, 0, result.stdout)
+        args = (self.home / 'nvim-args').read_bytes().decode().split('\0')[:-1]
+        fixture = self.home / 'fixture'
+        (fixture / 'scripts').mkdir(parents=True)
+        script = fixture / 'scripts/nvim-provision.lua'
+        for content, expected in [(None, 1), ('this is invalid lua', 1),
+                                  ('return', 1), ('vim.cmd("qa!")', 0)]:
+            with self.subTest(content=content):
+                if content is not None:
+                    script.write_text(content)
+                env = dict(self.env, MAC_SETUP_REPO_PATH=str(fixture))
+                run = subprocess.run([real_nvim, '-u', 'NONE', '-i', 'NONE', '-n', *args],
+                                     env=env, text=True, capture_output=True, timeout=10)
+                self.assertEqual(run.returncode, expected, run.stdout + run.stderr)
+
     def test_bundle_failure_propagates(self):
         jq = shutil.which('jq')
         self.assertIsNotNone(jq)
