@@ -26,11 +26,9 @@ onboarding = false
 # red = "#ff6188"
 # green = "#a6e3a1"
 
-# Follow macOS appearance, mirroring Ghostty's paired stock themes
-# (light:TokyoNight Day, dark:TokyoNight).
-auto_switch = true
-light_name = "tokyo-night-day"
-dark_name = "tokyo-night"
+# Use the host terminal's Lanna Tone palette without light/dark switching.
+name = "terminal"
+auto_switch = false
 
 [terminal]
 # Executable used for new interactive panes.

@@ -4,7 +4,7 @@
 # tools and GUI apps as your setup grows.
 
 # --- CLI tools (the terminal stack we built) ---
-brew "herdr"       # agent multiplexer (auto-launched by Ghostty)
+brew "herdr"       # agent multiplexer (launch named sessions manually)
 brew "neovim"      # editor
 brew "fzf"         # fuzzy finder (Ctrl-R / Ctrl-T in zsh, telescope-fzf in nvim)
 brew "fd"          # fast file finder (used by telescope)
@@ -22,7 +22,7 @@ brew "mas"         # Mac App Store CLI — only for the MANUAL installs listed a
 cask "font-meslo-lg-nerd-font"   # the Nerd Font Ghostty + Powerlevel10k use
 
 # --- Terminals ---
-cask "ghostty", args: { adopt: true }     # daily terminal: per-script font mapping (Thai via Arundina), auto-launches herdr
+cask "ghostty", args: { adopt: true }     # daily terminal: plain login zsh, Thai via Arundina
 cask "alacritty", args: { adopt: true }   # rescue terminal: plain login zsh, no multiplexer
 
 # --- GUI apps -----------------------------------------------------------------

@@ -66,4 +66,4 @@ bindings = [
   { key = "F11", action = "ToggleFullscreen" },                       # native fullscreen (own Space)
   { key = "M", mods = "Command|Shift", action = "ToggleMaximized" },  # borderless-maximized (current Space)
 ]
-# Theme/colors are imported from themes/tokyo-night.toml (see [general] above).
+# Theme/colors are imported from themes/lanna-tone.toml (see [general] above).

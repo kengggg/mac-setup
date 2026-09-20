@@ -7,6 +7,18 @@ spaces/tabs in the sidebar, right-click for menus, drag-select to copy.
 **Model:** session → **spaces** (workspaces, one per repo/task) → tabs → panes.
 Everything keeps running when you detach or close the window.
 
+Ghostty opens plain login zsh. Choose a session from that shell:
+
+```sh
+herdr --session work       # start or reattach work
+herdr --session personal   # use a different name in another window
+herdr session list         # list saved sessions
+```
+
+Different names give independent workspaces, tabs, and panes. Reusing the
+same name attaches to the same session; bare `herdr` uses `default`.
+Press `Ctrl b`, then `q` to detach back to zsh without stopping your work.
+
 ## Session
 
 | Key | Action |
