@@ -225,12 +225,63 @@ t_update_pulls_despite_rebase_config_and_dirty_lockfile() {
   grep -q '"dirty": true' "$A/config/nvim/lazy-lock.json" || _fail "local lockfile edit was lost"
 }
 
-t_update_survives_pull_failure() {
+t_update_stops_on_pull_failure() {
   sandbox nopull
   git -C "$A" remote set-url origin "$SB/nowhere.git"
-  # with no recorded selection and no tty, resolution stops before any install
+  local out rc=0
+  out="$(cd "$A" && ./install.sh update </dev/null 2>&1)" || rc=$?
+  assert_eq "$rc" 1 &&
+  assert_contains "$out" "no components were applied" &&
+  assert_contains "$out" "reapply" &&
+  [ ! -e "$HOME/.config/mac-setup/repo" ] || _fail "failed update mutated links"
+}
+
+t_update_warns_on_feature_branch() {
+  sandbox feature
+  git -C "$A" switch -qc feature
+  git -C "$A" remote set-url origin "$SB/nowhere.git"
   local out; out="$(cd "$A" && ./install.sh update </dev/null 2>&1)"
-  assert_contains "$out" "pull failed"
+  assert_contains "$out" "branch=feature" &&
+  assert_contains "$out" "update follows this branch, not main"
+}
+
+t_reapply_does_not_pull() {
+  sandbox reapply
+  git -C "$A" remote set-url origin "$SB/nowhere.git"
+  # relink requests the brew-free path after reapply's explicit no-pull handling.
+  local out; out="$(cd "$A" && ./install.sh reapply relink 2>&1)"; local rc=$?
+  assert_eq "$rc" 0 &&
+  assert_contains "$out" "no updates downloaded" &&
+  assert_lacks "$out" "pull failed" &&
+  assert_link_target .config/mac-setup/repo "$A"
+}
+
+t_update_stops_on_autostash_conflict() {
+  sandbox conflict
+  git clone -q "$O" "$SB/pub"
+  printf 'remote change\n' > "$SB/pub/home/vimrc"
+  git -C "$SB/pub" -c user.name=t -c user.email=t@t commit -qam conflict
+  git -C "$SB/pub" push -q origin main
+  printf 'local change\n' > "$A/home/vimrc"
+  local out rc=0
+  out="$(cd "$A" && ./install.sh update </dev/null 2>&1)" || rc=$?
+  assert_eq "$rc" 1 &&
+  assert_contains "$out" "unresolved Git conflicts" &&
+  [ ! -e "$HOME/.config/mac-setup/repo" ] || _fail "conflicted update mutated links"
+}
+
+t_bootstrap_stops_on_autostash_conflict() {
+  sandbox bootstrap-conflict
+  git clone -q "$O" "$SB/pub"
+  printf 'remote change\n' > "$SB/pub/home/vimrc"
+  git -C "$SB/pub" -c user.name=t -c user.email=t@t commit -qam conflict
+  git -C "$SB/pub" push -q origin main
+  printf 'local change\n' > "$A/home/vimrc"
+  local out rc=0
+  out="$(MAC_SETUP_DEST="$A" "$A/bootstrap.sh" doctor 2>&1)" || rc=$?
+  assert_eq "$rc" 1 &&
+  assert_contains "$out" "unresolved Git conflicts" &&
+  [ ! -e "$HOME/.config/mac-setup/repo" ] || _fail "conflicted bootstrap mutated links"
 }
 
 t_bootstrap_honours_repo_pointer() {

@@ -50,13 +50,20 @@ fi
 
 # 2. Clone or update the repo.
 if [ -d "$DEST/.git" ]; then
-  info "Updating existing checkout at $DEST"
+  branch="$(git -C "$DEST" symbolic-ref --quiet --short HEAD 2>/dev/null || echo DETACHED)"
+  info "Updating existing checkout at $DEST (branch=$branch)"
+  [ "$branch" = main ] || info "This checkout follows $branch, not main; switch to main to receive merged changes."
   git -C "$DEST" pull --ff-only --no-rebase --autostash   # same flags as install.sh update
 else
   info "Cloning $REPO_URL -> $DEST"
   mkdir -p "$(dirname "$DEST")"
   git clone "$REPO_URL" "$DEST"
 fi
+
+if [ -n "$(git -C "$DEST" ls-files -u)" ]; then
+  fail "unresolved Git conflicts in $DEST; resolve them before running install.sh"
+fi
+info "Checkout commit: $(git -C "$DEST" rev-parse --short HEAD)"
 
 # 3. Hand off to the idempotent installer (stdin is still the terminal here, so
 #    its interactive mode menu works). Pass through any args; MAC_SETUP_MODE and

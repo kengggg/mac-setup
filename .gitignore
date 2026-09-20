@@ -9,3 +9,8 @@
 # a full brew snapshot, if you ever generate one (kept out of the curated Brewfile)
 Brewfile.all
 Brewfile.all.lock.json
+
+# local test/runtime output
+__pycache__/
+*.pyc
+nvim.log

@@ -49,8 +49,8 @@ Brewfile). Everything is idempotent and backs up existing files to
 | `ghostty` | ghostty + herdr + MesloLGS + Arundina Sans Mono (Thai) → `~/.config/ghostty` + `~/.config/herdr/config.toml`, ⇧⌘M Zoom binding; plus alacritty (rescue terminal) → `~/.config/alacritty` |
 | `nvim` | neovim, ripgrep, fd, fzf, tree-sitter-cli, node → `~/.config/nvim` + provision |
 | `shell` | oh-my-zsh, p10k, zsh plugins, eza → `.zshrc`, `.p10k.zsh`, `.vimrc` |
-| `devtools` | Miniforge, nvm+Node → init in `~/.zshrc.local` |
-| `agents` | Claude Code (native installer) + statusline (`statusLine` jq-merged into `~/.claude/settings.json`), Codex CLI (brew), Grok CLI → init in `~/.zshrc.local` |
+| `devtools` | Miniforge, nvm+Node → managed init blocks in `~/.zshrc.local` |
+| `agents` | Claude Code (native installer) + statusline (`statusLine` jq-merged into `~/.claude/settings.json`), Codex CLI (brew), Grok CLI → managed init blocks in `~/.zshrc.local` |
 | `apps` | `brew bundle` of the Brewfile GUI apps |
 | `macos` | system tweaks (⌃⌘-drag window moving) |
 
@@ -65,7 +65,8 @@ Brewfile). Everything is idempotent and backs up existing files to
 ./install.sh --mode partial      # component checklist
 ./install.sh ghostty nvim        # run specific components
 ./install.sh update              # git pull, then replay this machine's recorded selection
-./install.sh doctor              # read-only: are all managed links healthy? (+ git state)
+./install.sh reapply             # replay the existing checkout without pulling
+./install.sh doctor              # read-only: links, selected dependencies, versions, config syntax
 ./install.sh relink              # repair links after moving the clone — no installs
 ```
 
@@ -115,7 +116,10 @@ replay the machine's recorded selection:
 `update` re-resolves a recorded `full` mode at run time, so a component newly
 added to full gets installed automatically; partial runs replay their exact
 component list. Machines without a record yet are prompted once, then
-remembered. Everything is idempotent, so replaying is safe.
+remembered. Everything is idempotent, so replaying is safe. A failed pull stops before
+any component work; use `./install.sh reapply` explicitly when offline.
+Unresolved Git conflicts stop both commands. Each run reports the branch and
+commit; feature branches produce a warning because they do not follow `main`.
 
 ### Ghostty and herdr: independent windows
 
@@ -137,6 +141,12 @@ separate. Sessions stay on the Mac where they were started; Git syncs the
 configuration, not live sessions. Press `Ctrl+B`, release, then `Q` to detach
 back to zsh while the session keeps running. See the
 [herdr cheat sheet](docs/herdr-cheatsheet.md) for session management commands.
+
+To return after detaching, open a shell on the same Mac, run
+`herdr session list`, then `herdr session attach work` (using the name from
+the list). For the unnamed/default session, just run `herdr`. See
+[Reattach after detaching](docs/herdr-cheatsheet.md#reattach-after-detaching)
+for a complete example.
 
 To adopt this change on an existing Mac:
 
@@ -193,11 +203,51 @@ Or, if you know exactly what changed, run just that component:
 | agent CLIs or statusline | `./install.sh agents` |
 | macOS tweaks | `./install.sh macos` |
 
+## Checking consistency between Macs
+
+Run `./install.sh doctor` on each Mac. It reports the checkout branch/commit,
+recorded component selection, curated Homebrew versions, selected executable
+versions and paths, required links, and configuration checks. You can save
+its output for comparison:
+
+```sh
+./install.sh doctor > /tmp/mac-setup-doctor.txt 2>&1
+```
+
+Missing selected dependencies, invalid configs, and broken links return a
+nonzero status with repair commands. The checks do not install or upgrade
+anything, fetch Git updates, or source your shell startup files. Version
+probes time out rather than hanging indefinitely. `relink` remains a
+link-only repair and does not require Homebrew.
+
+Validation covers Ghostty's native validator, shell syntax, Neovim Lua syntax
+without loading plugins, and TOML syntax when Python 3.11+ is available.
+Unavailable checks and GUI apps outside Homebrew are explicitly reported as
+unchecked. This is a diagnostic report, not a guarantee that every app or
+Neovim plugin works. Without a saved selection, dependency checks are skipped.
+Tool upgrades remain deliberate; different versions can still explain
+behavior differences between otherwise identical configs.
+
+Install failures now remain visible: Neovim plugin/build/parser/language-tool
+failures and `brew bundle` errors fail their component. Other components still
+run, and the final summary lists the retry command. A partial installation
+no longer finishes with a successful `done` message. Disabled rescue-terminal
+casks still produce warnings so they do not block the daily terminal.
+
 ## Machine-specific config
 
 The tracked `.zshrc` is portable. Per-machine tool inits (conda, nvm, language
 managers, app PATHs, secrets) go in `~/.zshrc.local`, which is untracked and
-sourced at the end of `.zshrc` if present.
+sourced at the end of `.zshrc` if present. The shared PATH does not pin an
+Android SDK build-tools version; put any version-specific Android PATH in
+this local file.
+
+Installer-owned conda, nvm, and Grok blocks are refreshed between their paired
+`# >>> ... >>>` / `# <<< ... <<<` markers. Keep handwritten settings outside
+those markers. Changes create a timestamped backup; identical reruns do not.
+Malformed or duplicate markers fail without modifying the file. The old exact
+three-line nvm block is migrated automatically; custom unmarked nvm setup is
+left intact with instructions instead of being overwritten.
 
 ## Migrating an already-configured machine
 
@@ -232,6 +282,7 @@ the first run on a machine that already had a setup:
 - Apple Silicon only; assumes Homebrew at `/opt/homebrew`
 - `~/.zprofile` is untracked; `install.sh` writes the brew `shellenv` line and the broken-`.zshrc` guard there
 - Symlinks go through `~/.config/mac-setup/repo`; moving the clone needs one `./install.sh relink` from its new home
+- GitHub Actions runs shell/config syntax checks, link/update tests, installer/picker regression tests, and mocked Neovim provisioning failure tests on macOS for every PR and push to `main`.
 - `tests/link-layer.sh` exercises the link layer (pointer, adoption, moves, `doctor`, `update`'s pull, bootstrap) against a throwaway `$HOME` and a local bare remote — no brew, no network, nothing on the real machine
 - The lanna-tone theme's source of truth is [kengggg/lanna-tone-theme](https://github.com/kengggg/lanna-tone-theme). The ghostty and alacritty copies here are synced with `./scripts/sync-theme.sh` — edit the theme repo, not the copies.
 - Ghostty renders Thai (U+0E00–U+0E7F) in Arundina Sans Mono via `font-codepoint-map`. Alacritty can't do per-script fonts, which is one reason it's the rescue terminal and not the daily one.
@@ -253,3 +304,15 @@ mac-setup/
 ├── config/                      # -> ~/.config/{ghostty,herdr,alacritty,nvim}
 └── home/                        # -> ~/.zshrc, ~/.p10k.zsh, ~/.vimrc
 ```
+
+## Development checks
+
+```sh
+./tests/link-layer.sh
+python3 -m unittest discover -s tests -p 'test_*.py' -v
+nvim --headless -u NONE -i NONE -l tests/nvim-provision.lua
+```
+
+Tests use temporary homes, local Git remotes, and mocked tools; they do not
+install packages or alter real sessions. Test dependencies are bash, zsh,
+Git, rsync, Python 3.11+, jq, and Neovim. CI installs missing test tools.

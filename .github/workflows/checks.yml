@@ -1,0 +1,37 @@
+name: Setup checks
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install test tools
+        run: brew install neovim jq
+      - name: Shell syntax
+        run: |
+          for script in bootstrap.sh install.sh scripts/*.sh tests/*.sh claude/*.sh; do bash -n "$script"; done
+          zsh -n home/zshrc home/p10k.zsh
+      - name: Link and update regression tests
+        run: ./tests/link-layer.sh
+      - name: Installer and session picker regression tests
+        run: python3 -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Provisioning failure regression tests
+        run: nvim --headless -u NONE -i NONE -l tests/nvim-provision.lua
+      - name: Config syntax
+        run: |
+          python3 - <<'PY'
+          import json, pathlib, tomllib
+          for path in pathlib.Path('config').rglob('*.toml'):
+              tomllib.loads(path.read_text())
+          json.loads(pathlib.Path('config/nvim/lazy-lock.json').read_text())
+          PY
+          nvim --headless -u NONE -i NONE -n -c 'lua assert(loadfile("config/nvim/init.lua"))' -c 'qa!'
