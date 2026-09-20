@@ -8,7 +8,7 @@ Machine setup & resurrection for Apple Silicon Macs.
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/kengggg/mac-setup/main/bootstrap.sh)"
 ```
 
-Installs Command Line Tools, clones to `~/Workspaces/mac-setup`, runs `install.sh`, which prompts for a mode. To pick non-interactively:
+Installs Command Line Tools, clones to `~/Workspaces/mac-setup`, runs `install.sh`, which opens the setup menu. To pick non-interactively:
 
 ```sh
 MAC_SETUP_MODE=full /bin/bash -c "$(curl -fsSL …/bootstrap.sh)"   # everything
@@ -39,9 +39,10 @@ Configs are symlinked from this repo; commit + push to sync across machines.
 
 ## Modes & components
 
-`install.sh` runs **components**; each component is already a group of
-programs (`agents` = Claude Code + Codex + Grok, `apps` = the whole
-Brewfile). Everything is idempotent and backs up existing files to
+`install.sh` runs **components**, which group related programs. Custom setup
+lets you choose individual programs inside terminals, development runtimes,
+agent CLIs, and the Brewfile. Neovim and the shared shell configuration keep
+their required tools and plugins together. Everything is idempotent and backs up existing files to
 `name.bak-<timestamp>`.
 
 | Component | Installs + links |
@@ -57,12 +58,12 @@ Brewfile). Everything is idempotent and backs up existing files to
 | Mode | Components |
 |------|-----------|
 | `full` | everything |
-| `partial` | interactive checklist — any subset |
+| `partial` | choose groups, then individual programs; review and save exact choices |
 
 ```sh
-./install.sh                     # interactive menu (full / partial)
+./install.sh                     # setup, update, health checks, link repair
 ./install.sh --mode full         # everything
-./install.sh --mode partial      # component checklist
+./install.sh --mode partial      # customize groups and individual apps
 ./install.sh ghostty nvim        # run specific components
 ./install.sh update              # git pull, then replay this machine's recorded selection
 ./install.sh reapply             # replay the existing checkout without pulling
@@ -70,11 +71,52 @@ Brewfile). Everything is idempotent and backs up existing files to
 ./install.sh relink              # repair links after moving the clone — no installs
 ```
 
+The interactive menu shows this Mac’s saved setup and offers:
+
+```text
+1) Update saved setup (pull latest and apply)
+2) Customize this Mac
+3) Install everything
+4) Check setup health
+5) Repair configuration links
+6) Reapply saved setup (offline)
+q) Quit
+```
+
+**Customize this Mac** starts with the saved choices, if present. Type numbers
+such as `1 3` to toggle checkboxes; use `all`, `none`, `back`, or `q`. Press
+Enter to continue. You then choose individual programs within selected groups:
+
+- Terminals: Ghostty, herdr, Alacritty.
+- Development runtimes: Miniforge, nvm + Node LTS.
+- Agent CLIs: Claude Code + statusline, Codex CLI, Grok CLI.
+- Brewfile: individual apps, fonts, and command-line tools.
+
+The review lists what will run. Type `i` to install and save, `b` to go back,
+or `q` to cancel. The setup menu makes no configuration changes before that
+choice. The bootstrap command still installs prerequisites and clones/pulls
+the repo before opening the menu. Invalid input leaves choices unchanged;
+repeating a number in one input toggles it only once.
+
+Required dependencies are included automatically (for example, herdr needs jq).
+Brewfile selections install packages; choose the matching setup group to also
+configure terminals, Neovim, or the shell. A package selected in one group may
+also be required by another. Unchecking software never uninstalls it or removes
+its existing configuration.
+
 Mode runs record themselves to `~/.config/mac-setup/selection` (untracked,
-per-machine). One-off component runs don't change the record. Retired
-component names in old records warn and skip; a failing component doesn't
-abort the run — the rest still execute, and the script ends with the list
-of components to re-run.
+per-machine). **Everything** follows the full preset, including future additions.
+**Custom** records the exact groups and items shown, and `update`/`reapply`
+replay those choices. Old one-line records remain supported; detailed choices
+use a version 2 record, parsed as data. Invalid records stop with instructions
+to choose a setup again. Saves are atomic.
+
+One-off commands such as `./install.sh agents` still run the **whole group**
+and leave the saved record alone. To retry detailed saved choices, use
+`./install.sh reapply`. The CLI and environment-variable shortcuts remain
+unattended; interactive confirmation applies only to menu-driven setup.
+A failing component does not abort the other selected components; the final
+summary lists failures and the appropriate retry command.
 
 ## What the installer will NOT do
 
@@ -186,7 +228,8 @@ without reinstalling anything; existing managed dotfiles resolve again.
 
 Every machine has one pointer, `~/.config/mac-setup/repo → <clone>`, and every
 managed dotfile links *through* it (`~/.zshrc → ~/.config/mac-setup/repo/home/zshrc`).
-Every installer run, whatever was selected, first converges that scheme:
+After selection is validated (and interactive setup confirmed), the installer
+converges that scheme:
 validates the required scripts and configs before replacing the repo pointer,
 then adopts links whose ownership is known and adds a guard to `~/.zprofile` that speaks up if `~/.zshrc` ever dangles,
 and ends with `doctor`. Real files and other people's symlinks are never
@@ -325,6 +368,8 @@ mac-setup/
 ├── Brewfile                     # dependencies + apps
 ├── bootstrap.sh                 # zero-to-setup entry point
 ├── install.sh                   # idempotent installer
+├── scripts/menu.sh              # action menu, checklists, review
+├── scripts/selection.sh         # saved selections and per-item filtering
 ├── scripts/nvim-provision.lua   # headless treesitter + Mason
 ├── scripts/sync-theme.sh        # pull lanna-tone from its canonical repo
 ├── tests/link-layer.sh          # link-layer tests in a throwaway $HOME
@@ -348,5 +393,7 @@ The historical upgrade tests need Git history containing `7f6e568` and
 `1f96b03` (use `git fetch --unshallow` for a shallow clone). They execute both
 documented update forms from those versions through a real component and
 final health checks, using stubbed system commands. Regression coverage also
-includes foreign links with matching suffixes, interrupted writes, pointer
-rollback, partial theme downloads, and failed theme promotion.
+includes scripted menu navigation, cancellation before writes, per-app replay,
+filtered installers and diagnostics, foreign links with matching suffixes,
+interrupted writes, pointer rollback, partial theme downloads, and failed theme
+promotion. Menu tests replace installation operations with mocks.

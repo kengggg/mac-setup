@@ -4,7 +4,7 @@ validate_checkout() {
   local root="$1" comp src dest path
   [ -x "$root/install.sh" ] && [ -f "$root/Brewfile" ] || return 1
   for path in install.sh scripts/filesystem.sh scripts/repo-pointer.sh \
-      scripts/managed-block.sh scripts/doctor.sh scripts/herdr-session.sh; do
+      scripts/managed-block.sh scripts/selection.sh scripts/menu.sh scripts/doctor.sh scripts/herdr-session.sh; do
     [ -r "$root/$path" ] && /bin/bash -n "$root/$path" || return 1
   done
   for path in scripts/nvim-provision.lua config/nvim/init.lua config/nvim/lazy-lock.json \

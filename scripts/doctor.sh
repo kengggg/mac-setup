@@ -25,7 +25,7 @@ doctor_command() {
     esac
   fi
   if [ ! -x "$bin" ]; then
-    printf '    MISSING   %s (retry: ./install.sh %s)\n' "$name" "$diagnostic_component"
+    printf '    MISSING   %s (retry: %s)\n' "$name" "$(retry_command "$diagnostic_component")"
     return 1
   fi
   if version="$(doctor_probe "$bin" --version 2>&1)"; then
@@ -38,7 +38,7 @@ doctor_command() {
 
 doctor_file() {
   if [ ! -e "$1" ]; then
-    printf '    MISSING   %s (retry: ./install.sh %s)\n' "$1" "$diagnostic_component"
+    printf '    MISSING   %s (retry: %s)\n' "$1" "$(retry_command "$diagnostic_component")"
     return 1
   fi
 }
@@ -54,15 +54,14 @@ doctor_toml() {
 }
 
 doctor_environment() {
-  local selected="${COMPONENTS:-}" record diagnostic_component tool bad=0 output ghostty_bin inventory=""
+  local selected="${COMPONENTS:-}" diagnostic_component tool bad=0 output ghostty_bin inventory=""
+  # Keep record loading local to this check, including per-item filters.
+  local MODE COMPONENTS="${COMPONENTS:-}"
+  local ITEMS_GHOSTTY="$ITEMS_GHOSTTY" ITEMS_DEVTOOLS="$ITEMS_DEVTOOLS" ITEMS_AGENTS="$ITEMS_AGENTS" ITEMS_APPS="$ITEMS_APPS"
   repo_identity
   if [ -z "$selected" ] && [ -f "$STATE_FILE" ]; then
-    record="$(cat "$STATE_FILE")"
-    case "$record" in
-      mode=full) selected="$FULL_COMPONENTS" ;;
-      components=*) selected="${record#components=}" ;;
-      *) warn "unrecognized selection; run ./install.sh --mode partial"; return 1 ;;
-    esac
+    if ! load_selection; then warn "unrecognized selection; run ./install.sh"; return 1; fi
+    selected="$COMPONENTS"
   fi
   if [ -z "$selected" ]; then
     warn "no recorded components; dependency checks skipped (record a full/partial selection)"
@@ -85,12 +84,23 @@ doctor_environment() {
   for diagnostic_component in $selected; do
     local commands=""
     case "$diagnostic_component" in
-      ghostty|alacritty) commands="ghostty herdr jq" ;;
+      ghostty|alacritty)
+        if item_selected ghostty ghostty; then commands=ghostty; fi
+        if item_selected ghostty herdr; then commands="$commands herdr jq"; fi
+        ;;
       nvim) commands="nvim rg fd fzf tree-sitter node deno lazygit magick mmdc" ;;
       shell) commands="zsh fzf eza" ;;
-      agents|claude) commands="jq claude codex grok" ;;
+      agents|claude)
+        if item_selected agents claude; then commands='jq claude'; fi
+        if item_selected agents codex; then commands="$commands codex"; fi
+        if item_selected agents grok; then commands="$commands grok"; fi
+        ;;
       devtools) commands="" ;;
-      apps) commands="gh mas" ;;
+      apps)
+        commands=jq
+        if item_selected apps brew:gh; then commands="$commands gh"; fi
+        if item_selected apps brew:mas; then commands="$commands mas"; fi
+        ;;
       macos) commands="" ;;
       zellij) warn "retired component: zellij"; continue ;;
       *) warn "unknown selected component: $diagnostic_component"; bad=1; continue ;;
@@ -103,23 +113,26 @@ doctor_environment() {
     [ "$expected" != claude ] || expected=agents
     while read -r comp src dest; do
       [ "$comp" = "$expected" ] || continue
+      source_selected "$comp" "$src" || continue
       if [ ! -e "$HOME/$dest" ] || [ "$(readlink "$HOME/$dest" 2>/dev/null)" != "$REPO_LINK/$src" ]; then
-        warn "selected $expected config not linked: ~/$dest — retry ./install.sh $expected"; bad=1
+        warn "selected $expected config not linked: ~/$dest — retry $(retry_command "$expected")"; bad=1
       fi
     done < <(links)
     case "$diagnostic_component" in
       ghostty|alacritty)
         ghostty_bin="$(command -v ghostty || true)"
         ghostty_bin="${ghostty_bin:-/Applications/Ghostty.app/Contents/MacOS/ghostty}"
-        if [ -x "$ghostty_bin" ]; then
+        if item_selected ghostty ghostty && [ -x "$ghostty_bin" ]; then
           if output="$(doctor_probe "$ghostty_bin" +validate-config 2>&1)"; then
             printf '    config    Ghostty validation passed\n'
             [ -z "$output" ] || printf '    note      %s\n' "$output"
           else warn "Ghostty config invalid: $output"; bad=1; fi
         fi
-        doctor_toml "$HOME/.config/herdr/config.toml" || bad=1
-        doctor_toml "$HOME/.config/alacritty/alacritty.toml" || bad=1
-        [ -d /Applications/Alacritty.app ] || warn "Alacritty rescue app absent; its cask may require manual installation"
+        if item_selected ghostty herdr; then doctor_toml "$HOME/.config/herdr/config.toml" || bad=1; fi
+        if item_selected ghostty alacritty; then
+          doctor_toml "$HOME/.config/alacritty/alacritty.toml" || bad=1
+          [ -d /Applications/Alacritty.app ] || warn "Alacritty rescue app absent; its cask may require manual installation"
+        fi
         ;;
       shell)
         for tool in "$HOME/.oh-my-zsh/oh-my-zsh.sh" \
@@ -139,18 +152,22 @@ doctor_environment() {
         fi
         ;;
       devtools)
+        if item_selected devtools miniforge; then
         if [ -x "$HOME/miniforge3/bin/conda" ]; then doctor_probe "$HOME/miniforge3/bin/conda" --version || bad=1
-        else warn "Miniforge missing — retry ./install.sh devtools"; bad=1; fi
+        else warn "Miniforge missing — retry $(retry_command devtools)"; bad=1; fi
+        fi
+        if item_selected devtools nvm; then
         local nvm_script="$HOME/.nvm/nvm.sh"
         [ -s "$nvm_script" ] || nvm_script=/opt/homebrew/opt/nvm/nvm.sh
         if [ -s "$nvm_script" ]; then
           doctor_probe bash --noprofile --norc -c 'export NVM_DIR="$HOME/.nvm"; . "$1"; printf "    nvm       "; nvm --version; printf "    node      "; nvm current; nvm version default' bash "$nvm_script" || bad=1
-        else warn "nvm missing — retry ./install.sh devtools"; bad=1; fi
+        else warn "nvm missing — retry $(retry_command devtools)"; bad=1; fi
+        fi
         ;;
       agents|claude)
-        if command -v jq >/dev/null; then
+        if item_selected agents claude && command -v jq >/dev/null; then
           jq -e '.statusLine.command == "bash ~/.claude/statusline-command.sh"' "$HOME/.claude/settings.json" >/dev/null || {
-            warn "Claude statusLine missing/invalid — retry ./install.sh agents"; bad=1;
+            warn "Claude statusLine missing/invalid — retry $(retry_command agents)"; bad=1;
           }
         fi
         ;;
@@ -158,14 +175,14 @@ doctor_environment() {
         if command -v brew >/dev/null; then
           while read -r tool; do
             if ! printf '%s\n' "$inventory" | awk -v tool="$tool" '$1 == tool { found=1 } END {exit !found}'; then
-              warn "Brewfile formula missing: $tool — retry ./install.sh apps"; bad=1
+              warn "Brewfile formula missing: $tool — retry $(retry_command apps)"; bad=1
             fi
-          done < <(sed -nE 's/^brew "([^"]+)".*/\1/p' "$REPO/Brewfile")
+          done < <(apps_brewfile | sed -nE 's/^brew "([^"]+)".*/\1/p')
           while read -r tool; do
             if ! printf '%s\n' "$inventory" | awk -v tool="$tool" '$1 == tool { found=1 } END {exit !found}'; then
               printf '    UNCHECKED %s is not brew-managed (may be installed manually); verify in Applications\n' "$tool"
             fi
-          done < <(sed -nE 's/^cask "([^"]+)".*/\1/p' "$REPO/Brewfile")
+          done < <(apps_brewfile | sed -nE 's/^cask "([^"]+)".*/\1/p')
         fi
         ;;
       macos)
