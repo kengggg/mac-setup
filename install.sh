@@ -61,7 +61,7 @@ EOF
 }
 
 # Destinations that retired components used to link. The convergence pass
-# deletes one only when it is a dangling symlink (the retired config dir is
+# deletes one only when it is an owned dangling symlink (the retired config dir is
 # gone from the repo, so that link can never resolve); a real directory or a
 # live link is someone's own and stays — doctor just calls it stale.
 retired() {
@@ -70,38 +70,34 @@ retired() {
 EOF
 }
 
-# point $REPO_LINK at the clone this script runs from; say so if it moved
+# Pointer replacement validates the checkout and rolls back a failed verification.
+# Capture the previous root before swapping so moved legacy links remain identifiable.
 ensure_repo_link() {
-  if [ ! -L "$REPO_LINK" ] && [ -d "$REPO_LINK" ] &&
-     [ "$(cd "$REPO_LINK" && pwd -P)" = "$REPO" ]; then
-    warn "the checkout occupies the reserved repo pointer path; move it elsewhere, then run ./install.sh relink"
-    return 1
+  PREVIOUS_REPO="$(readlink "$REPO_LINK" 2>/dev/null || true)"
+  if [ -n "$PREVIOUS_REPO" ]; then
+    case "$PREVIOUS_REPO" in /*) ;; *) PREVIOUS_REPO="$(dirname "$REPO_LINK")/$PREVIOUS_REPO" ;; esac
+    if [ -d "$PREVIOUS_REPO" ]; then PREVIOUS_REPO="$(cd "$PREVIOUS_REPO" && pwd -P)"; fi
   fi
-  mkdir -p "$(dirname "$REPO_LINK")"
-  if [ -L "$REPO_LINK" ]; then
-    local cur; cur="$(readlink "$REPO_LINK")"
-    if [ "$cur" != "$REPO" ]; then
-      ln -sfn "$REPO" "$REPO_LINK"
-      log "repo moved: $cur -> $REPO (updated $REPO_LINK)"
-    fi
-  elif [ -e "$REPO_LINK" ]; then
-    mv "$REPO_LINK" "$REPO_LINK.bak-$TS"
-    warn "backed up $REPO_LINK -> $REPO_LINK.bak-$TS"
-    ln -sfn "$REPO" "$REPO_LINK"
-  else
-    ln -sfn "$REPO" "$REPO_LINK"
-    log "repo pointer: $REPO_LINK -> $REPO"
-  fi
+  replace_repo_pointer
 }
 
-# A symlink is ours when its target ends with the manifest's repo-relative
-# path — true for links through the pointer AND for pre-pointer direct links
-# into any clone, wherever it lived. Real files and other people's links
-# never match.
-is_ours() {  # is_ours <dest> <repo-relative-source>
+# Explicit pointer/current/previous roots establish ownership, even after a move.
+# Other live legacy clones need the same Git origin; a suffix alone proves nothing.
+is_ours() { # destination, manifest source
+  local target root origin ours
   [ -L "$1" ] || return 1
-  case "$(readlink "$1")" in */"$2") return 0 ;; esac
-  return 1
+  target="$(readlink "$1")"
+  case "$target" in /*) ;; *) target="$(dirname "$1")/$target" ;; esac
+  for root in "$REPO_LINK" "$REPO" "${PREVIOUS_REPO:-}"; do
+    [ -n "$root" ] && [ "$target" = "$root/$2" ] && return 0
+  done
+  case "$target" in */"$2") root="${target%/"$2"}" ;; *) return 1 ;; esac
+  [ -d "$root" ] || return 1
+  root="$(cd "$root" && pwd -P)" || return 1
+  [ "$(git -C "$root" rev-parse --show-toplevel 2>/dev/null)" = "$root" ] || return 1
+  origin="$(git -C "$root" config --get remote.origin.url)" || return 1
+  ours="$(git -C "$REPO" config --get remote.origin.url)" || return 1
+  [ -n "$origin" ] && [ "$origin" = "$ours" ]
 }
 
 # (re)point one link through the pointer; silent when already correct
@@ -126,7 +122,7 @@ converge_links() {
   done < <(links)
   while read -r dest; do
     [ -n "$dest" ] || continue
-    if [ -L "$HOME/$dest" ] && [ ! -e "$HOME/$dest" ]; then
+    if [ ! -e "$HOME/$dest" ] && is_ours "$HOME/$dest" "${dest#.}"; then
       rm "$HOME/$dest"
       log "removed dangling link of retired component: ~/$dest"
     fi
@@ -196,9 +192,9 @@ doctor() {
   while read -r dest; do
     [ -n "$dest" ] || continue
     d="$HOME/$dest"
-    if [ -L "$d" ] && [ ! -e "$d" ]; then
+    if [ ! -e "$d" ] && is_ours "$d" "${dest#.}"; then
       printf '    BROKEN    ~/%s (retired component; relink removes it)\n' "$dest"; bad=1
-    elif [ -e "$d" ]; then
+    elif [ -e "$d" ] || [ -L "$d" ]; then
       printf '    stale     ~/%s (retired component; yours to remove)\n' "$dest"
     fi
   done < <(retired)
@@ -253,6 +249,8 @@ save_selection() {
 }
 
 # Installer-owned blocks and read-only environment checks.
+source "$REPO/scripts/filesystem.sh"
+source "$REPO/scripts/repo-pointer.sh"
 source "$REPO/scripts/managed-block.sh"
 source "$REPO/scripts/doctor.sh"
 ensure_local_block() { ensure_block "$LOCAL" "$1"; }
@@ -272,18 +270,25 @@ bootstrap_homebrew() {
   else
     log "Homebrew already installed"
   fi
-  eval "$(/opt/homebrew/bin/brew shellenv)"
+  local brew_bin brew_prefix
+  brew_bin="$(command -v brew || printf /opt/homebrew/bin/brew)"
+  eval "$("$brew_bin" shellenv)"
+  brew_prefix="$("$brew_bin" --prefix)"
   # Fail fast if brew's prefix belongs to another user (e.g. the machine was
   # first set up under a different account) — every component needs brew, and
   # dying here with the fix beats dying mid-run on a random package.
-  if [ ! -w /opt/homebrew ]; then
-    warn "/opt/homebrew is not writable by $USER — brew installs will fail."
+  if [ ! -w "$brew_prefix" ]; then
+    warn "$brew_prefix is not writable by $USER — brew installs will fail."
     warn "Fix once (from an admin account), then re-run:"
-    warn "  sudo chown -R $USER /opt/homebrew"
+    warn "  sudo chown -R $USER \"$brew_prefix\""
     exit 1
   fi
   if ! grep -q 'brew shellenv' "$HOME/.zprofile" 2>/dev/null; then
-    echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> "$HOME/.zprofile"
+    ensure_block "$HOME/.zprofile" '# >>> mac-setup brew >>>' <<'BLOCK'
+# >>> mac-setup brew >>>
+eval "$(/opt/homebrew/bin/brew shellenv)"
+# <<< mac-setup brew <<<
+BLOCK
     log "added brew shellenv to ~/.zprofile"
   fi
 }

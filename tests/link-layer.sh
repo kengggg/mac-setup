@@ -181,6 +181,40 @@ t_relink_leaves_foreign_links_alone() {
   assert_link_target .zshrc "$HOME/gone/zshrc"
 }
 
+t_relink_preserves_foreign_links_with_matching_suffixes() {
+  sandbox foreign-suffix
+  mkdir -p "$HOME/other/home"
+  printf 'other repo\n' > "$HOME/other/home/zshrc"
+  git -C "$HOME/other" init -q
+  git -C "$HOME/other" remote add origin "$SB/different-origin.git"
+  mklink .zshrc "$HOME/other/home/zshrc"
+  mklink .vimrc "$HOME/gone/home/vimrc"
+  mklink .config/zellij "$HOME/other/config/zellij"
+  "$A/install.sh" relink >/dev/null 2>&1 || return 1
+  assert_link_target .zshrc "$HOME/other/home/zshrc" &&
+  assert_link_target .vimrc "$HOME/gone/home/vimrc" &&
+  assert_link_target .config/zellij "$HOME/other/config/zellij"
+}
+
+t_relink_adopts_verified_sibling_clone_links() {
+  sandbox sibling-clone
+  git clone -q "$O" "$SB/b"
+  mklink .zshrc "$SB/b/home/zshrc"
+  mklink .vimrc "../b/home/vimrc" # relative to fake HOME
+  "$A/install.sh" relink >/dev/null 2>&1 || return 1
+  assert_via_pointer .zshrc home/zshrc &&
+  assert_via_pointer .vimrc home/vimrc
+}
+
+t_relink_adopts_dangling_direct_link_with_previous_pointer_evidence() {
+  sandbox previous-root
+  mklink .config/mac-setup/repo "$SB/old-checkout"
+  mklink .zshrc "$SB/old-checkout/home/zshrc"
+  "$A/install.sh" relink >/dev/null 2>&1 || return 1
+  assert_via_pointer .zshrc home/zshrc &&
+  assert_resolves .zshrc "$A/home/zshrc"
+}
+
 t_relink_is_idempotent() {
   sandbox idem
   mklink .zshrc "$A/home/zshrc"

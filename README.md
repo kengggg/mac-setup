@@ -187,11 +187,20 @@ without reinstalling anything; existing managed dotfiles resolve again.
 Every machine has one pointer, `~/.config/mac-setup/repo → <clone>`, and every
 managed dotfile links *through* it (`~/.zshrc → ~/.config/mac-setup/repo/home/zshrc`).
 Every installer run, whatever was selected, first converges that scheme:
-re-points the pointer at the clone it runs from, adopts any managed link that
-is already ours (old direct links, links left dangling by a move), adds a
-one-line guard to `~/.zprofile` that speaks up if `~/.zshrc` ever dangles,
+validates the required scripts and configs before replacing the repo pointer,
+then adopts links whose ownership is known and adds a guard to `~/.zprofile` that speaks up if `~/.zshrc` ever dangles,
 and ends with `doctor`. Real files and other people's symlinks are never
 touched by that pass — creating a link stays gated by component selection.
+Pointer replacement uses an atomic rename and verifies the new target; a failed
+verification restores the previous pointer. A real file or directory occupying
+the pointer path is backed up first. The clone itself must live elsewhere.
+
+Ownership means a link through the pointer, into the current or previously
+recorded clone, or into a live Git checkout with the same origin URL. A matching
+suffix such as `home/zshrc` is not enough. Unknown dangling links are preserved;
+if an old clone disappeared before its location was recorded, explicitly run
+the relevant component (for example `./install.sh shell`) to adopt its config.
+The same ownership rule protects foreign links at retired component paths.
 
 So a machine set up before the pointer existed needs nothing special: its next
 `./install.sh update` migrates it. And if you move the clone:
@@ -260,7 +269,11 @@ this local file.
 Installer-owned conda, nvm, and Grok blocks are refreshed between their paired
 `# >>> ... >>>` / `# <<< ... <<<` markers. Keep handwritten settings outside
 those markers. Changes create a timestamped backup; identical reruns do not.
-Malformed or duplicate markers fail without modifying the file. The old exact
+The replacement is syntax-checked, staged beside the target, and atomically
+renamed into place. Existing permissions and symlink chains are preserved;
+a failed or interrupted write leaves the previous complete file available.
+Malformed or duplicate markers and invalid shell syntax fail without modifying
+the file. Dangling local-config symlinks must be repaired first. The old exact
 three-line nvm block is migrated automatically; custom unmarked nvm setup is
 left intact with instructions instead of being overwritten.
 
@@ -290,7 +303,7 @@ the first run on a machine that already had a setup:
 | Multiple Ghostty windows show the same herdr contents | They attached to the same session. Use different names, e.g. `herdr --session work` and `herdr --session personal`, for independent workspaces and panes. |
 | Ghostty won't open, or herdr is wedged | Open **Alacritty** — the rescue terminal: plain login zsh, no multiplexer, its own config, so it keeps working while you fix Ghostty/herdr (`./install.sh doctor` is a good first command there). |
 | `skipping alacritty: its cask is disabled in Homebrew` (and the ghostty component warns it can't install it) | Homebrew disabled the cask (2026-09: the release fails Gatekeeper), so brew can't install it on a machine that doesn't have it yet. Setup continues without the rescue terminal; install it manually from [Alacritty's releases](https://github.com/alacritty/alacritty/releases) — its config link is already in place. |
-| `doctor` says `stale ~/.config/zellij` | Leftover from the retired zellij component that is a real directory or a live link, so the installer won't touch it. Remove it yourself (and `brew uninstall zellij` if you still have the formula); dangling leftovers are removed by `relink` automatically. |
+| `doctor` says `stale ~/.config/zellij` | Leftover at the retired zellij path that is a real directory, a live link, or a foreign dangling link, so the installer won't touch it. Remove it yourself (and `brew uninstall zellij` if you still have the formula); only dangling links owned by mac-setup are removed by `relink` automatically. |
 
 ## Notes
 
@@ -299,7 +312,7 @@ the first run on a machine that already had a setup:
 - Symlinks go through `~/.config/mac-setup/repo`; moving the clone needs one `./install.sh relink` from its new home
 - GitHub Actions runs shell/config syntax checks, link/update tests, installer/picker regression tests, and mocked Neovim provisioning failure tests on macOS for every PR and push to `main`.
 - `tests/link-layer.sh` exercises the link layer (pointer, adoption, moves, `doctor`, `update`'s pull, bootstrap) against a throwaway `$HOME` and a local bare remote — no brew, no network, nothing on the real machine
-- The lanna-tone theme's source of truth is [kengggg/lanna-tone-theme](https://github.com/kengggg/lanna-tone-theme). The ghostty and alacritty copies here are synced with `./scripts/sync-theme.sh` — edit the theme repo, not the copies.
+- The lanna-tone theme's source of truth is [kengggg/lanna-tone-theme](https://github.com/kengggg/lanna-tone-theme). The ghostty and alacritty copies here are synced with `./scripts/sync-theme.sh` (Python 3.11+ required) — edit the theme repo, not the copies. Both downloads are staged and checked for valid, complete, matching palettes before either live copy changes. Each file is replaced atomically; a caught failure or interruption restores both previous copies. Power loss or `SIGKILL` between the two renames can leave different complete versions; rerun the sync to reconcile them.
 - Ghostty renders Thai (U+0E00–U+0E7F) in Arundina Sans Mono via `font-codepoint-map`. Alacritty can't do per-script fonts, which is one reason it's the rescue terminal and not the daily one.
 - Alacritty stays deliberately plain: login zsh, no auto-launched program, lanna-tone theme, the same ⇧⏎ / F11 / ⇧⌘M bindings as Ghostty. Don't wire herdr (or anything else) into it.
 - Ghostty opens a plain login zsh in each window. Launch **herdr** manually with `herdr --session <name>`; `herdr session list` lists saved sessions, and `ctrl+b q` detaches back to the shell while panes keep running. Bare `herdr` uses the shared default session. herdr's config is linked file-level (`~/.config/herdr` also holds runtime state); its in-app settings (`ctrl+b s`) write through the symlink, so TUI changes show up as git diffs here.
@@ -331,3 +344,9 @@ nvim --headless -u NONE -i NONE -l tests/nvim-provision.lua
 Tests use temporary homes, local Git remotes, and mocked tools; they do not
 install packages or alter real sessions. Test dependencies are bash, zsh,
 Git, rsync, Python 3.11+, jq, and Neovim. CI installs missing test tools.
+The historical upgrade tests need Git history containing `7f6e568` and
+`1f96b03` (use `git fetch --unshallow` for a shallow clone). They execute both
+documented update forms from those versions through a real component and
+final health checks, using stubbed system commands. Regression coverage also
+includes foreign links with matching suffixes, interrupted writes, pointer
+rollback, partial theme downloads, and failed theme promotion.
