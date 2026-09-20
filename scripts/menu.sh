@@ -32,7 +32,7 @@ menu_main() {
   while :; do
     printf '\nmac-setup\n\n'
     print_saved_selection
-    printf '\n  1) Update saved setup (pull latest and apply)\n  2) Customize this Mac\n  3) Install everything\n  4) Check setup health\n  5) Repair configuration links\n  6) Reapply saved setup (offline)\n  q) Quit\n\nChoice: '
+    printf '\n  1) Update saved setup (pull latest and apply)\n  2) Customize this Mac\n  3) Install everything\n  4) Check setup health\n  5) Repair configuration links\n  6) Reapply saved setup (no Git pull)\n  q) Quit\n\nChoice: '
     menu_read || return 1
     choice="$REPLY"
     case "$choice" in

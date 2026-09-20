@@ -79,7 +79,7 @@ The interactive menu shows this Mac’s saved setup and offers:
 3) Install everything
 4) Check setup health
 5) Repair configuration links
-6) Reapply saved setup (offline)
+6) Reapply saved setup (no Git pull)
 q) Quit
 ```
 
@@ -107,7 +107,8 @@ its existing configuration.
 Mode runs record themselves to `~/.config/mac-setup/selection` (untracked,
 per-machine). **Everything** follows the full preset, including future additions.
 **Custom** records the exact groups and items shown, and `update`/`reapply`
-replay those choices. Old one-line records remain supported; detailed choices
+replay those choices. `reapply` skips the Git pull; installing missing software
+can still require network access. Old one-line records remain supported; detailed choices
 use a version 2 record, parsed as data. Invalid records stop with instructions
 to choose a setup again. Saves are atomic.
 
