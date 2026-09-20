@@ -292,7 +292,15 @@ comp_ghostty() {
   # rescue terminal: plain login zsh, no multiplexer, its own config — a way
   # in when Ghostty, herdr or their configs misbehave. Installed together so
   # the rescue is always there.
-  brew_install ghostty font-meslo-lg-nerd-font herdr alacritty
+  brew_install ghostty font-meslo-lg-nerd-font herdr
+  # The alacritty cask comes and goes upstream (disabled 2026-09: release
+  # fails Gatekeeper), and a manual install isn't brew-listed — so probe
+  # /Applications first, and let a failed install warn, not abort: a missing
+  # rescue terminal must not take the daily terminal's setup down with it.
+  if [ ! -d "/Applications/Alacritty.app" ] && ! brew_install alacritty; then
+    warn "alacritty (rescue terminal) failed to install — likely its cask is disabled in Homebrew;"
+    warn "install it manually from https://github.com/alacritty/alacritty/releases (its config is linked either way)"
+  fi
   # Arundina Sans Mono (Thai glyphs) has no brew cask; fetch TTFs from the
   # canonical TLWG release. Ghostty maps U+0E00-U+0E7F to it (see config).
   if ! ls "$HOME/Library/Fonts"/ArundinaSansMono* >/dev/null 2>&1; then
@@ -508,17 +516,17 @@ comp_apps() {
   # alone. brew would otherwise treat it as uninstalled and re-attempt it on
   # EVERY run: re-downloading, then sudo-prompting to replace an app it may
   # not even own. Skipped apps keep updating themselves and stay outside brew.
-  local skip="" managed casks tok app
+  local skip="" managed casks tok app reason json
   managed=" $(brew list --cask 2>/dev/null | tr '\n' ' ') "
   casks="$(sed -nE 's/^cask "([^"]+)".*/\1/p' "$REPO/Brewfile")"
+  json="$(brew info --cask --json=v2 $casks 2>/dev/null)"
   while IFS=$'\t' read -r tok app; do
     [ -n "$app" ] || continue
     case "$managed" in *" $tok "*) continue ;; esac   # brew-managed: bundle skips it itself
     if [ -e "/Applications/$app" ] || [ -e "$HOME/Applications/$app" ]; then
       skip="$skip $tok"
     fi
-  done < <(brew info --cask --json=v2 $casks 2>/dev/null \
-    | jq -r '.casks[] | .token as $t | (.artifacts[]? | select(.app?) | .app[0]? // empty) as $a | [$t, $a] | @tsv')
+  done < <(jq -r '.casks[] | .token as $t | (.artifacts[]? | select(.app?) | .app[0]? // empty) as $a | [$t, $a] | @tsv' <<<"$json")
   # pkg-based casks expose no .app artifact (and their installers sudo) —
   # probe those from an explicit token:app table
   while IFS=: read -r tok app; do
@@ -532,6 +540,17 @@ EOF
   if [ -n "$skip" ]; then
     log "leaving already-present apps alone:${skip}"
   fi
+  # A cask brew has disabled (e.g. alacritty, 2026-09, fails Gatekeeper) can
+  # never install; attempting it would fail the bundle on every run. Skip it
+  # loudly — the app has to come from its own releases until brew re-enables.
+  while IFS=$'\t' read -r tok reason; do
+    [ -n "$tok" ] || continue
+    case "$managed" in *" $tok "*) continue ;; esac
+    case " $skip " in *" $tok "*) ;; *)
+      warn "skipping $tok: its cask is disabled in Homebrew (${reason:-no reason given}) — install it manually if you need it"
+      skip="$skip $tok" ;;
+    esac
+  done < <(jq -r '.casks[] | select(.disabled) | [.token, (.disable_reason // "")] | @tsv' <<<"$json")
 
   # --no-upgrade: converge on missing packages only — upgrading what's already
   # installed is `brew upgrade`'s job, and a broken upgrade of an unrelated

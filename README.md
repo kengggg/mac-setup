@@ -136,7 +136,10 @@ mv ~/Workspaces/mac-setup ~/Work/mac-setup && ~/Work/mac-setup/install.sh relink
 ```
 
 `bootstrap.sh` honours the pointer too, so re-running the one-liner updates
-the clone wherever it lives instead of creating a second one.
+the clone wherever it lives instead of creating a second one. And if the
+pointer is dangling — the clone was moved without `relink`, or deleted —
+bootstrap stops and says what to do rather than cloning a stray second copy
+into the default path.
 
 Or, if you know exactly what changed, run just that component:
 
@@ -180,6 +183,7 @@ the first run on a machine that already had a setup:
 | New terminals open with a bare `%` prompt, or print `mac-setup: ~/.zshrc is a broken link` | The clone moved (or was deleted) and the links dangle. From the clone's new location: `./install.sh relink`. `./install.sh doctor` shows exactly which links are affected. |
 | Ghostty opens a plain shell instead of herdr | herdr isn't on PATH (not installed, or brew broken); the window falls back to zsh on purpose. `./install.sh ghostty` installs it; `doctor` warns about it. |
 | Ghostty won't open, or herdr is wedged | Open **Alacritty** — the rescue terminal: plain login zsh, no multiplexer, its own config, so it keeps working while you fix Ghostty/herdr (`./install.sh doctor` is a good first command there). |
+| `skipping alacritty: its cask is disabled in Homebrew` (and the ghostty component warns it can't install it) | Homebrew disabled the cask (2026-09: the release fails Gatekeeper), so brew can't install it on a machine that doesn't have it yet. Setup continues without the rescue terminal; install it manually from [Alacritty's releases](https://github.com/alacritty/alacritty/releases) — its config link is already in place. |
 | `doctor` says `stale ~/.config/zellij` | Leftover from the retired zellij component that is a real directory or a live link, so the installer won't touch it. Remove it yourself (and `brew uninstall zellij` if you still have the formula); dangling leftovers are removed by `relink` automatically. |
 
 ## Notes

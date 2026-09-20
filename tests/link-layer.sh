@@ -242,6 +242,18 @@ t_bootstrap_honours_repo_pointer() {
   [ ! -e "$HOME/Workspaces/mac-setup" ] || _fail "bootstrap cloned a second copy"
 }
 
+t_bootstrap_stops_on_dangling_pointer() {
+  sandbox boot-dangling
+  # the incident: `mv Workspaces Work` leaves the pointer dangling; bootstrap
+  # must stop with directions, not fall back to re-cloning the default path.
+  mkdir -p "$HOME/.config/mac-setup"; ln -sfn "$SB/gone/mac-setup" "$HOME/.config/mac-setup/repo"
+  local out rc=0
+  out="$(MAC_SETUP_REPO="$SB/no-such-remote.git" "$A/bootstrap.sh" doctor 2>&1)" || rc=$?
+  [ "$rc" -ne 0 ] || _fail "bootstrap exited 0 despite dangling pointer" || return 1
+  assert_contains "$out" "relink" &&
+  [ ! -e "$HOME/Workspaces" ] || _fail "bootstrap created \$HOME/Workspaces despite dangling pointer"
+}
+
 t_relink_removes_dangling_retired_link() {
   sandbox retired
   mklink .config/zellij "$A/config/zellij"      # component retired: target no longer exists
