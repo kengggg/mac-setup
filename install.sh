@@ -3,9 +3,9 @@
 # install.sh — component-based machine setup / resurrection.
 #
 # Usage:
-#   ./install.sh                  # interactive menu: full / partial
+#   ./install.sh                  # setup, update, health checks, link repair
 #   ./install.sh --mode full      # everything
-#   ./install.sh --mode partial   # interactive component checklist
+#   ./install.sh --mode partial   # choose groups/apps, review and save
 #   ./install.sh ghostty nvim     # run specific components directly
 #   ./install.sh update           # git pull, then re-run this machine's recorded selection
 #   ./install.sh reapply          # replay the recorded selection without pulling
@@ -136,6 +136,7 @@ link_component() {  # link_component <component>
   local comp src dest d
   while read -r comp src dest; do
     [ "$comp" = "$1" ] || continue
+    source_selected "$comp" "$src" || continue
     d="$HOME/$dest"
     if [ -e "$d" ] && [ ! -L "$d" ]; then
       mv "$d" "$d.bak-$TS"
@@ -237,21 +238,12 @@ brew_install() {
   done
 }
 
-# record what this run installed so a later `./install.sh update` can replay
-# it. Full runs are recorded by mode name (so components added to full later
-# are picked up); partial runs record their exact component list.
-save_selection() {
-  mkdir -p "$(dirname "$STATE_FILE")"
-  case "$MODE" in
-    full)    printf 'mode=%s\n' "$MODE" > "$STATE_FILE" ;;
-    partial) printf 'components=%s\n' "${COMPONENTS# }" > "$STATE_FILE" ;;
-  esac
-}
-
 # Installer-owned blocks and read-only environment checks.
 source "$REPO/scripts/filesystem.sh"
 source "$REPO/scripts/repo-pointer.sh"
 source "$REPO/scripts/managed-block.sh"
+source "$REPO/scripts/selection.sh"
+source "$REPO/scripts/menu.sh"
 source "$REPO/scripts/doctor.sh"
 ensure_local_block() { ensure_block "$LOCAL" "$1"; }
 
@@ -298,25 +290,27 @@ comp_ghostty() {
   log "[ghostty]"
   # Ghostty is the daily terminal: plain login zsh, with herdr sessions
   # launched manually when wanted. Alacritty is the
-  # rescue terminal: plain login zsh, no multiplexer, its own config — a way
-  # in when Ghostty, herdr or their configs misbehave. Installed together so
-  # the rescue is always there.
-  brew_install ghostty font-meslo-lg-nerd-font herdr jq
+  # rescue terminal: plain login zsh, no multiplexer, its own config. Full
+  # setup includes all three; custom setup can select them individually.
+  if item_selected ghostty ghostty; then brew_install ghostty font-meslo-lg-nerd-font; fi
+  if item_selected ghostty herdr; then brew_install herdr jq; fi
+  if item_selected ghostty alacritty; then brew_install font-meslo-lg-nerd-font; fi
   # The alacritty cask comes and goes upstream (disabled 2026-09: release
   # fails Gatekeeper), and a manual install isn't brew-listed — so probe
   # /Applications first, and let a failed install warn, not abort: a missing
   # rescue terminal must not take the daily terminal's setup down with it.
-  if [ ! -d "/Applications/Alacritty.app" ] && ! brew_install alacritty; then
+  if item_selected ghostty alacritty && [ ! -d "/Applications/Alacritty.app" ] && ! brew_install alacritty; then
     warn "alacritty (rescue terminal) failed to install — likely its cask is disabled in Homebrew;"
     warn "install it manually from https://github.com/alacritty/alacritty/releases (its config is linked either way)"
   fi
   # Arundina Sans Mono (Thai glyphs) has no brew cask; fetch TTFs from the
   # canonical TLWG release. Ghostty maps U+0E00-U+0E7F to it (see config).
-  if ! ls "$HOME/Library/Fonts"/ArundinaSansMono* >/dev/null 2>&1; then
+  if item_selected ghostty ghostty && ! ls "$HOME/Library/Fonts"/ArundinaSansMono* >/dev/null 2>&1; then
     local tmp; tmp="$(mktemp -d)"
     curl -fsSL -o "$tmp/arundina.tar.xz" \
       "https://github.com/tlwg/fonts-arundina/releases/download/v0.4.0/ttf-arundina-0.4.0.tar.xz"
     tar -xJf "$tmp/arundina.tar.xz" -C "$tmp"
+    mkdir -p "$HOME/Library/Fonts"
     cp "$tmp"/ttf-arundina-*/ArundinaSansMono*.ttf "$HOME/Library/Fonts/"
     rm -rf "$tmp"
     log "installed Arundina Sans Mono -> ~/Library/Fonts"
@@ -327,11 +321,13 @@ comp_ghostty() {
   # Cmd+Shift+M -> Window > Zoom (Ghostty's toggle_maximize is a no-op on
   # macOS; the native Zoom menu item is the Alacritty ToggleMaximized
   # equivalent). Applied at next Ghostty launch.
+  if item_selected ghostty ghostty; then
   defaults write com.mitchellh.ghostty NSUserKeyEquivalents -dict-add "Zoom" '@$m'
   # Ctrl+Cmd+drag anywhere in a window to move it — Ghostty's hidden
   # titlebar (macos-titlebar-style = hidden) leaves nothing to grab.
   # Global setting; apps pick it up on next launch.
   defaults write -g NSWindowShouldDragOnGesture -bool true
+  fi
 }
 
 comp_nvim() {
@@ -406,6 +402,7 @@ EOF
 
 comp_devtools() {
   log "[devtools]"
+  if item_selected devtools miniforge; then
   # Miniforge (conda + mamba) -> ~/miniforge3 (batch mode skips rc editing)
   if [ ! -x "$HOME/miniforge3/bin/conda" ]; then
     log "installing Miniforge to ~/miniforge3"
@@ -438,6 +435,9 @@ export MAMBA_ROOT_PREFIX="$HOME/miniforge3"
 # <<< conda initialize <<<
 EOF
 
+  fi
+
+  if item_selected devtools nvm; then
   # nvm + Node LTS (skip if any nvm already present)
   if [ ! -s "$HOME/.nvm/nvm.sh" ] && ! brew list nvm >/dev/null 2>&1; then
     log "installing nvm"; brew install nvm
@@ -458,13 +458,16 @@ EOF
     log "installing Node LTS via nvm"; nvm install --lts
   fi
 
+  fi
 }
 
 # Agent CLIs: Claude Code (+ statusline), Codex, Grok. Self-contained so a
 # second machine can get them without devtools' conda/nvm.
 comp_agents() {
   log "[agents]"
-  brew_install jq codex                 # jq: statusline runtime dep; codex: Codex CLI
+  if item_selected agents codex; then brew_install codex; fi
+  if item_selected agents claude; then
+  brew_install jq                       # statusline runtime dependency
 
   # Claude Code — native installer puts the binary in ~/.local/bin, which the
   # tracked .zshrc already has on PATH.
@@ -475,6 +478,9 @@ comp_agents() {
     curl -fsSL https://claude.ai/install.sh | bash
   fi
 
+  fi
+
+  if item_selected agents grok; then
   # Grok CLI
   if [ ! -x "$HOME/.grok/bin/grok" ]; then
     log "installing grok CLI"
@@ -493,6 +499,9 @@ EOF
   # from the tracked repo file so the canonical block stays only in .zshrc.local.
   sed -i '' '/# >>> grok installer >>>/,/# <<< grok installer <<</d' "$REPO/home/zshrc" 2>/dev/null || true
 
+  fi
+
+  if item_selected agents claude; then
   # Claude Code statusline
   link_component agents
   # settings.json is Claude Code's own file — MERGE the statusLine key only,
@@ -510,10 +519,16 @@ EOF
     jq -n --arg c "$cmd" '{statusLine:{type:"command", command:$c}}' > "$sj"
     log "created settings.json with statusLine"
   fi
+  fi
 }
 
-comp_apps() {
-  log "[apps] brew bundle (GUI apps + full package set)"
+comp_apps() (
+  log "[apps] selected Brewfile apps and tools"
+  apps_manifest="$(mktemp)"
+  trap 'rm -f "$apps_manifest"' EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' HUP TERM
+  apps_brewfile > "$apps_manifest"
   brew_install jq                       # used by the presence probe below
   # codexbar once lived in steipete/tap; it's now in homebrew/cask. A stale
   # tap shadows the official cask and trips brew's untrusted-tap guard in
@@ -530,8 +545,9 @@ comp_apps() {
   # not even own. Skipped apps keep updating themselves and stay outside brew.
   local skip="" managed casks tok app reason json
   managed=" $(brew list --cask 2>/dev/null | tr '\n' ' ') "
-  casks="$(sed -nE 's/^cask "([^"]+)".*/\1/p' "$REPO/Brewfile")"
-  json="$(brew info --cask --json=v2 $casks 2>/dev/null)"
+  casks="$(sed -nE 's/^cask "([^"]+)".*/\1/p' "$apps_manifest" | tr '\n' ' ')"
+  json='{"casks":[]}'
+  if [ -n "${casks// /}" ]; then json="$(brew info --cask --json=v2 $casks 2>/dev/null)"; fi
   while IFS=$'\t' read -r tok app; do
     [ -n "$app" ] || continue
     case "$managed" in *" $tok "*) continue ;; esac   # brew-managed: bundle skips it itself
@@ -543,6 +559,7 @@ comp_apps() {
   # probe those from an explicit token:app table
   while IFS=: read -r tok app; do
     [ -n "$tok" ] || continue
+    contains_word "$casks" "$tok" || continue
     case "$managed" in *" $tok "*) continue ;; esac
     if [ -e "/Applications/$app" ]; then skip="$skip $tok"; fi
   done <<'EOF'
@@ -570,11 +587,11 @@ EOF
   # abort other components. Bundle errors fail this component and appear in
   # the final retry summary while the rest of the run continues.
   # (App Store apps are deliberately NOT installed — see the Brewfile.)
-  if ! HOMEBREW_BUNDLE_CASK_SKIP="${skip# }" brew bundle install --no-upgrade --file="$REPO/Brewfile"; then
-    warn "brew bundle finished with errors (see above) — fix and re-run: ./install.sh apps"
+  if ! HOMEBREW_BUNDLE_CASK_SKIP="${skip# }" brew bundle install --no-upgrade --file="$apps_manifest"; then
+    warn "brew bundle finished with errors (see above) — fix and re-run: $(retry_command apps)"
     return 1
   fi
-}
+)
 
 comp_macos() {
   log "[macos] system tweaks"
@@ -601,46 +618,6 @@ run_component() {
   esac
 }
 
-# --- mode / component selection ----------------------------------------------
-choose_mode() {  # sets MODE
-  printf '\nSelect install mode:\n'
-  printf '  1) full    — everything: terminals (ghostty+herdr, alacritty rescue), nvim, shell, dev tools, agent CLIs, apps, macOS tweaks\n'
-  printf '  2) partial — choose components\n'
-  printf 'Choice [1-2]: '
-  local c; read -r c </dev/tty
-  case "$c" in
-    1) MODE=full ;;
-    2) MODE=partial ;;
-    *) echo "invalid choice: $c" >&2; exit 1 ;;
-  esac
-}
-
-choose_components() {  # sets COMPONENTS
-  printf '\nSelect components by number (space-separated, e.g. "1 3"):\n'
-  printf '  1) ghostty   — Ghostty + herdr, and Alacritty as the plain rescue terminal\n'
-  printf '  2) nvim      — Neovim + its tools, provisioned\n'
-  printf '  3) shell     — oh-my-zsh, Powerlevel10k, plugins, .zshrc/.p10k.zsh/.vimrc\n'
-  printf '  4) devtools  — Miniforge (conda), nvm + Node LTS\n'
-  printf '  5) agents    — Claude Code + statusline, Codex, Grok\n'
-  printf '  6) apps      — GUI apps from the Brewfile\n'
-  printf '  7) macos     — system tweaks\n'
-  printf 'Components: '
-  local nums n; read -r nums </dev/tty
-  COMPONENTS=""
-  for n in $nums; do
-    case "$n" in
-      1) COMPONENTS="$COMPONENTS ghostty" ;;
-      2) COMPONENTS="$COMPONENTS nvim" ;;
-      3) COMPONENTS="$COMPONENTS shell" ;;
-      4) COMPONENTS="$COMPONENTS devtools" ;;
-      5) COMPONENTS="$COMPONENTS agents" ;;
-      6) COMPONENTS="$COMPONENTS apps" ;;
-      7) COMPONENTS="$COMPONENTS macos" ;;
-      *) warn "ignoring invalid choice: $n" ;;
-    esac
-  done
-}
-
 apply_components() {
   # One failing component must not abort the rest of the run. Each component
   # executes in a subshell with its own set -e (so it still stops at its first
@@ -657,120 +634,140 @@ apply_components() {
   set -e
 
   if [ -n "$FAILED" ]; then
-    warn "components with errors:${FAILED} — fix above, then re-run: ./install.sh${FAILED}"
+    local retry="./install.sh${FAILED}" failed_component
+    for failed_component in $FAILED; do
+      if [ "$(items_get "$failed_component")" != '*' ]; then retry='./install.sh reapply'; fi
+    done
+    warn "components with errors:${FAILED} — fix above, then re-run: $retry"
     return 1
   fi
   doctor || return 1                             # a run that leaves a managed link broken is not "done"
 }
 
-# tests/link-layer.sh sources this file for its functions; stop before main
-if [ -n "${MAC_SETUP_LIB:-}" ]; then return 0 2>/dev/null || exit 0; fi
-
 # --- main ---------------------------------------------------------------------
-MODE=""
-ARGS=""
-COMPONENTS=""
-VERB=""
-REAPPLY=0
-ORIG_ARGS=("$@")
+main() {
+  MODE=""
+  ARGS=""
+  COMPONENTS=""
+  VERB=""
+  REAPPLY=0
+  SETUP_READY=0
+  MENU_ACTION=0
+  reset_items
+  ORIG_ARGS=("$@")
 
-while [ $# -gt 0 ]; do
-  case "$1" in
-    --mode)   MODE="${2:-}"; shift 2 ;;
-    --mode=*) MODE="${1#*=}"; shift ;;
-    -h|--help) sed -n '2,22p' "$0"; exit 0 ;;
-    update) MODE="update"; shift ;;
-    reapply) MODE="update"; REAPPLY=1; shift ;;
-    doctor|relink) VERB="$1"; shift ;;
-    *) ARGS="$ARGS $1"; shift ;;
-  esac
-done
-[ -z "$MODE" ] && MODE="${MAC_SETUP_MODE:-}"
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --mode)   [ $# -ge 2 ] || { warn "--mode requires full or partial"; return 1; }; MODE="$2"; shift 2 ;;
+      --mode=*) MODE="${1#*=}"; shift ;;
+      -h|--help) sed -n '2,22p' "$0"; exit 0 ;;
+      update) MODE="update"; shift ;;
+      reapply) MODE="update"; REAPPLY=1; shift ;;
+      doctor|relink) VERB="$1"; shift ;;
+      -*) warn "unknown option: $1"; return 1 ;;
+      *) ARGS="$ARGS $1"; shift ;;
+    esac
+  done
+  [ -z "$MODE" ] && MODE="${MAC_SETUP_MODE:-}"
 
-# Pull only for update; offline replay is an explicit command so failure cannot
-# look like a successful update. Refuse unresolved merge/autostash conflicts.
-if [ "$MODE" = "update" ]; then
-  repo_identity
-  if [ -n "$(git -C "$REPO" ls-files -u)" ]; then
-    warn "unresolved Git conflicts; resolve them before updating or reapplying"
-    exit 1
+  case "$MODE" in ''|full|partial|update) ;; *) warn "unknown mode: $MODE (use full or partial)"; return 1 ;; esac
+  # Collect/review interactive choices before any config writes, pulls or installs.
+  menu_status=0
+  if [ -z "$MODE$VERB$ARGS${MAC_SETUP_COMPONENTS:-}" ]; then
+    menu_start || menu_status=$?
+  elif [ "$MODE" = partial ] && [ -z "$VERB$ARGS" ]; then
+    configure_setup || menu_status=$?
+    if [ "$menu_status" = 3 ]; then menu_status=0; menu_start || menu_status=$?; fi
+    [ "$menu_status" != 0 ] || SETUP_READY=1
   fi
-  if [ "$REAPPLY" = 1 ]; then
-    log "reapply: using existing checkout; no updates downloaded"
-  elif [ -z "${MAC_SETUP_PULLED:-}" ]; then
-    log "update: git pull --ff-only"
-    if git -C "$REPO" pull --ff-only --no-rebase --autostash; then
-      MAC_SETUP_PULLED=1 exec "$REPO/install.sh" "${ORIG_ARGS[@]}"
-    else
-      warn "pull failed — no components were applied; fix Git/network and retry update"
-      warn "to deliberately use the existing checkout offline: ./install.sh reapply"
+  case "$menu_status" in 0) ;; 2) log "cancelled; no setup changes applied"; return 0 ;; *) return "$menu_status" ;; esac
+  if [ "$MENU_ACTION" = 1 ] && [ "$MODE" = update ]; then
+    ORIG_ARGS=(update) # re-exec must replay the action instead of reopening the menu
+  fi
+
+  # Pull only for update; offline replay is an explicit command so failure cannot
+  # look like a successful update. Refuse unresolved merge/autostash conflicts.
+  if [ "$MODE" = "update" ]; then
+    repo_identity
+    if [ -n "$(git -C "$REPO" ls-files -u)" ]; then
+      warn "unresolved Git conflicts; resolve them before updating or reapplying"
       exit 1
     fi
-  else
-    log "update: pull succeeded; applying the checkout reported above"
+    if [ "$REAPPLY" = 1 ]; then
+      log "reapply: using existing checkout; no updates downloaded"
+    elif [ -z "${MAC_SETUP_PULLED:-}" ]; then
+      log "update: git pull --ff-only"
+      if git -C "$REPO" pull --ff-only --no-rebase --autostash; then
+        MAC_SETUP_PULLED=1 exec "$REPO/install.sh" "${ORIG_ARGS[@]}"
+      else
+        warn "pull failed — no components were applied; fix Git/network and retry update"
+        warn "to deliberately use the existing checkout offline: ./install.sh reapply"
+        exit 1
+      fi
+    else
+      log "update: pull succeeded; applying the checkout reported above"
+    fi
   fi
-fi
 
-# doctor is read-only; everything else first converges the machine onto the
-# pointer scheme (idempotent, brew-free, independent of what was selected)
-if [ "$VERB" = "doctor" ]; then
-  if doctor; then exit 0; else exit 1; fi
-fi
-ensure_repo_link
-converge_links
-ensure_zprofile_guard
-if [ "$VERB" = "relink" ]; then
-  if doctor links; then exit 0; else exit 1; fi
-fi
-
-# update: replay this machine's recorded selection (recorded by mode runs)
-if [ "$MODE" = "update" ]; then
-  MODE=""
-  if [ -f "$STATE_FILE" ]; then
-    SEL="$(cat "$STATE_FILE")"
-    case "$SEL" in
-      mode=full)    MODE=full ;;
-      mode=*)       warn "recorded mode '${SEL#mode=}' is obsolete (modes are now full/partial) — choose again" ;;
-      components=*) COMPONENTS="${SEL#components=}" ;;
-      *) warn "unrecognized $STATE_FILE content; choose again" ;;
-    esac
-    if [ -n "$MODE$COMPONENTS" ]; then log "update: replaying recorded selection (${SEL})"; fi
-  else
-    warn "no recorded selection on this machine yet — choose one; it will be remembered"
+  # Maintenance actions bypass installation selection and Homebrew.
+  if [ "$VERB" = "doctor" ]; then
+    if doctor; then return 0; else return 1; fi
   fi
-fi
-
-if [ -n "$ARGS" ]; then
-  COMPONENTS="$ARGS"                       # explicit component names win
-elif [ -z "$COMPONENTS" ]; then            # may already be set by `update` replay
-  if [ -z "$MODE" ] && [ -n "${MAC_SETUP_COMPONENTS:-}" ]; then
-    MODE=partial                           # recorded like a partial run
-    COMPONENTS=" $MAC_SETUP_COMPONENTS"
-  else
-    [ -z "$MODE" ] && choose_mode          # no mode given -> interactive menu
-    case "$MODE" in
-      full)    COMPONENTS="$FULL_COMPONENTS" ;;
-      partial) choose_components ;;
-      *) echo "unknown mode: $MODE (use full|partial|update)" >&2; exit 1 ;;
-    esac
+  if [ "$VERB" = "relink" ]; then
+    ensure_repo_link
+    converge_links
+    ensure_zprofile_guard
+    if doctor links; then return 0; else return 1; fi
   fi
-fi
 
-if [ -z "${COMPONENTS// /}" ]; then
-  warn "nothing selected; exiting"
-  exit 0
-fi
+  # Replay validated saved intent; missing/invalid records need explicit setup.
+  if [ "$MODE" = update ]; then
+    if ! load_selection; then
+      warn "no valid saved setup; run ./install.sh to choose and save this Mac's setup"
+      return 1
+    fi
+    log "update: replaying recorded selection ($COMPONENTS)"
+  fi
 
-log "components:${COMPONENTS}"
-bootstrap_homebrew                           # fail-fast: everything needs brew
+  if [ -n "$ARGS" ]; then
+    COMPONENTS="$ARGS"; reset_items          # explicit one-off groups
+  elif [ "$SETUP_READY" != 1 ] && [ -z "$COMPONENTS" ]; then
+    if [ -z "$MODE" ] && [ -n "${MAC_SETUP_COMPONENTS:-}" ]; then
+      MODE=partial
+      COMPONENTS="$MAC_SETUP_COMPONENTS"
+    elif [ "$MODE" = full ]; then
+      COMPONENTS="$FULL_COMPONENTS"
+    else
+      warn "choose a setup with ./install.sh, or supply component names"
+      return 1
+    fi
+  fi
+  validate_selection || return 1
 
-# Record intent even if some components fail; a later update retries them.
-if [ -z "$ARGS" ]; then save_selection; fi
-apply_components
-if [ "${MAC_SETUP_PULLED:-}" = 1 ]; then
-  log "update complete: pulled and applied selected components"
-elif [ "$REAPPLY" = 1 ]; then
-  log "reapply complete: existing checkout applied; no updates downloaded"
-else
-  log "done."
-fi
+  if [ -z "${COMPONENTS// /}" ]; then
+    warn "nothing selected; exiting"
+    exit 0
+  fi
+
+  ensure_repo_link
+  converge_links
+  ensure_zprofile_guard
+  log "components:${COMPONENTS}"
+  bootstrap_homebrew                           # fail-fast: everything needs brew
+
+  # Record intent even if some components fail; a later update retries them.
+  if [ -z "$ARGS" ]; then save_selection; fi
+  apply_components
+  if [ "${MAC_SETUP_PULLED:-}" = 1 ]; then
+    log "update complete: pulled and applied selected components"
+  elif [ "$REAPPLY" = 1 ]; then
+    log "reapply complete: existing checkout applied; no updates downloaded"
+  else
+    log "done."
+  fi
+
+}
+
+# Tests source the functions and replace external/mutating operations.
+if [ -n "${MAC_SETUP_LIB:-}" ]; then return 0 2>/dev/null || exit 0; fi
+main "$@"
