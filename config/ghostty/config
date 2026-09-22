@@ -10,9 +10,11 @@ font-size   = 12
 # by install.sh); everything else stays MesloLGS.
 font-codepoint-map = U+0E00-U+0E7F=Arundina Sans Mono
 
-# Fixed Lanna Tone palette, independent of macOS light/dark appearance.
-# Synced from kengggg/lanna-tone-theme with scripts/sync-theme.sh.
-theme = lanna-tone
+# Fixed Catppuccin Mocha palette (stock theme bundled with Ghostty),
+# independent of macOS light/dark appearance. The Lanna Tone copy stays in
+# themes/ (synced from kengggg/lanna-tone-theme) for easy revert:
+#theme = lanna-tone
+theme = Catppuccin Mocha
 
 # --- Shell -----------------------------------------------------------------
 # Each window opens an independent login zsh with brew tools on PATH.

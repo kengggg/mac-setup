@@ -2,7 +2,8 @@
 # Color palette lives in its own file. Swap themes by pointing this at
 # another file in ~/.config/alacritty/themes/.
 #import = ["~/.config/alacritty/themes/tokyo-night.toml"]
-import = ["~/.config/alacritty/themes/lanna-tone.toml"]
+#import = ["~/.config/alacritty/themes/lanna-tone.toml"]
+import = ["~/.config/alacritty/themes/catppuccin-mocha.toml"]
 
 [env]
 TERM = "xterm-256color"
@@ -66,4 +67,5 @@ bindings = [
   { key = "F11", action = "ToggleFullscreen" },                       # native fullscreen (own Space)
   { key = "M", mods = "Command|Shift", action = "ToggleMaximized" },  # borderless-maximized (current Space)
 ]
-# Theme/colors are imported from themes/lanna-tone.toml (see [general] above).
+# Theme/colors are imported from themes/catppuccin-mocha.toml (see the
+# import at the top; lanna-tone.toml stays available as the revert palette).
