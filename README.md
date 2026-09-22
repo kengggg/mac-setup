@@ -206,7 +206,7 @@ the update does not move them into named sessions. Run `herdr` in a new
 window to return to the old default session. Detaching from an older window
 that auto-launched herdr may close that window rather than return to zsh.
 
-Ghostty now uses fixed Lanna Tone colors, with no day/night switching. In an
+Ghostty now uses fixed Catppuccin Mocha colors, with no day/night switching. In an
 existing herdr client, press `Ctrl+B`, release, then `Shift+R` to reload its
 config and use the terminal palette with automatic theme switching disabled.
 
@@ -358,9 +358,9 @@ the first run on a machine that already had a setup:
 - `tests/link-layer.sh` exercises the link layer (pointer, adoption, moves, `doctor`, `update`'s pull, bootstrap) against a throwaway `$HOME` and a local bare remote — no brew, no network, nothing on the real machine
 - The lanna-tone theme's source of truth is [kengggg/lanna-tone-theme](https://github.com/kengggg/lanna-tone-theme). The ghostty and alacritty copies here are synced with `./scripts/sync-theme.sh` (Python 3.11+ required) — edit the theme repo, not the copies. Both downloads are staged and checked for valid, complete, matching palettes before either live copy changes. Each file is replaced atomically; a caught failure or interruption restores both previous copies. Power loss or `SIGKILL` between the two renames can leave different complete versions; rerun the sync to reconcile them.
 - Ghostty renders Thai (U+0E00–U+0E7F) in Arundina Sans Mono via `font-codepoint-map`. Alacritty can't do per-script fonts, which is one reason it's the rescue terminal and not the daily one.
-- Alacritty stays deliberately plain: login zsh, no auto-launched program, lanna-tone theme, the same ⇧⏎ / F11 / ⇧⌘M bindings as Ghostty. Don't wire herdr (or anything else) into it.
+- Alacritty stays deliberately plain: login zsh, no auto-launched program, catppuccin-mocha theme, the same ⇧⏎ / F11 / ⇧⌘M bindings as Ghostty. Don't wire herdr (or anything else) into it.
 - Ghostty opens a plain login zsh in each window. Launch **herdr** manually with `herdr --session <name>`; `herdr session list` lists saved sessions, and `ctrl+b q` detaches back to the shell while panes keep running. Bare `herdr` uses the shared default session. herdr's config is linked file-level (`~/.config/herdr` also holds runtime state); its in-app settings (`ctrl+b s`) write through the symlink, so TUI changes show up as git diffs here.
-- Ghostty uses the fixed Lanna Tone theme, independent of macOS appearance. herdr uses the host terminal's palette (`name = "terminal"`, `auto_switch = false`); Alacritty also uses Lanna Tone. There is no automatic day/night theme switching.
+- Both terminals default to fixed Catppuccin Mocha, independent of macOS appearance: Ghostty via its stock bundled theme, Alacritty via the vendored `config/alacritty/themes/catppuccin-mocha.toml` (from [catppuccin/alacritty](https://github.com/catppuccin/alacritty)). herdr uses the host terminal's palette (`name = "terminal"`, `auto_switch = false`). There is no automatic day/night theme switching. Lanna Tone remains in both `themes/` directories as the revert palette.
 
 ## Layout
 

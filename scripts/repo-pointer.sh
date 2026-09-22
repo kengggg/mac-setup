@@ -9,7 +9,8 @@ validate_checkout() {
   done
   for path in scripts/nvim-provision.lua config/nvim/init.lua config/nvim/lazy-lock.json \
       config/ghostty/config config/ghostty/themes/lanna-tone \
-      config/alacritty/alacritty.toml config/alacritty/themes/lanna-tone.toml; do
+      config/alacritty/alacritty.toml config/alacritty/themes/lanna-tone.toml \
+      config/alacritty/themes/catppuccin-mocha.toml; do
     [ -s "$root/$path" ] || return 1
   done
   while read -r comp src dest; do
